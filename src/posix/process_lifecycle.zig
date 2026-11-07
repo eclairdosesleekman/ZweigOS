@@ -352,13 +352,13 @@ test "reap rejects a non-child before releasing any reserved object" {
     const parent = try processes.initialize(1);
     const child_a = try processes.spawn(parent.id, 2);
     const child_b = try processes.spawn(parent.id, 3);
+    try processes.markRunning(child_a.id);
     const grandchild = try processes.spawn(child_a.id, 4);
     const plan = testPlan(grandchild.id);
     var authority: object_authority.Table = .{};
     var manager: Manager = .{};
 
     _ = try manager.prepare(&processes, &authority, grandchild, plan);
-    try processes.markRunning(child_a.id);
     try processes.markRunning(grandchild.id);
     try processes.exit(grandchild.id, 0);
 
