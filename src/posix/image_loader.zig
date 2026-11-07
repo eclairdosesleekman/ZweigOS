@@ -21,6 +21,7 @@ const user_address_end: u64 = 0x0000_8000_0000_0000;
 const at_null: u64 = 0;
 const at_pagesz: u64 = 6;
 const at_entry: u64 = 9;
+const max_usize: u64 = @intCast(std.math.maxInt(usize));
 
 pub const Arguments = struct {
     argv: []const []const u8 = &.{},
@@ -153,7 +154,7 @@ fn buildInitialStack(
     }
 
     const auxiliary = [_]StackAux{
-        .{ .tag = at_pagesz, .value = page_size },
+        .{ .tag = at_pagesz, .value = @as(u64, page_size) },
         .{ .tag = at_entry, .value = entry },
         .{ .tag = at_null, .value = 0 },
     };
@@ -191,7 +192,7 @@ fn buildInitialStack(
         try pushWord(stack, &cursor, argv_pointers[argument_index]);
     }
 
-    try pushWord(stack, &cursor, arguments.argv.len);
+    try pushWord(stack, &cursor, @as(u64, @intCast(arguments.argv.len)));
 
     const stack_pointer_result = @addWithOverflow(virtual_base, @as(u64, @intCast(cursor)));
     if (stack_pointer_result[1] != 0) return error.InvalidStackLayout;
@@ -222,11 +223,11 @@ pub fn load(
     {
         return error.InvalidStackLayout;
     }
-    if (options.stack_size > std.math.maxInt(usize)) return error.InvalidStackLayout;
+    if (options.stack_size > max_usize) return error.InvalidStackLayout;
 
     const stack_bottom = options.stack_top - options.stack_size;
     if (stack_bottom <= user_min_address + @as(u64, page_size)) return error.InvalidStackLayout;
-    const stack_guard_bottom = stack_bottom - page_size;
+    const stack_guard_bottom = stack_bottom - @as(u64, page_size);
 
     var result = LoadedImage{
         .entry = plan.entry,
@@ -256,7 +257,7 @@ pub fn load(
         const mapping_start = alignDown(segment.virtual_address);
         const mapping_end = try alignUp(segment_end);
         const mapping_size_u64 = mapping_end - mapping_start;
-        if (mapping_size_u64 > std.math.maxInt(usize)) return error.InvalidLoadSegment;
+        if (mapping_size_u64 > max_usize) return error.InvalidLoadSegment;
         const mapping_size: usize = @intCast(mapping_size_u64);
 
         if (overlaps(mapping_start, mapping_end, stack_guard_bottom, options.stack_top)) {
