@@ -116,7 +116,7 @@ fn write64(bytes: []u8, offset: usize, value: u64) void {
 
 test "ELF64 load planner records segment permissions and guarded stack layout" {
     const std = @import("std");
-    var image = [_]u8{0} ** 136;
+    var image: [136]u8 = @splat(0);
     image[0] = 0x7f;
     image[1] = 'E';
     image[2] = 'L';
