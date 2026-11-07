@@ -181,6 +181,21 @@ pub const Table = struct {
         return null;
     }
 
+    /// Return a child only when it is a direct child of the supplied process.
+    /// This lets lifecycle cleanup verify parentage before releasing resources.
+    pub fn childOf(self: *const Table, parent_id: ProcessId, child_pid: u32) ?ProcessInfo {
+        if (self.findConst(parent_id) == null) return null;
+        for (self.records) |record| {
+            if (!record.active or record.pid != child_pid) continue;
+            if (record.parent) |record_parent| {
+                if (sameId(record_parent, parent_id)) {
+                    return .{ .id = record.id.?, .pid = record.pid };
+                }
+            }
+        }
+        return null;
+    }
+
     pub fn state(self: *const Table, id: ProcessId) ?State {
         if (self.findConst(id) == null) return null;
         return self.registry.state(id) catch null;

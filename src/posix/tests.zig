@@ -8,4 +8,5 @@ test {
     _ = @import("image_loader.zig");
     _ = @import("process_manager.zig");
     _ = @import("process_resources.zig");
+    _ = @import("process_lifecycle.zig");
 }
