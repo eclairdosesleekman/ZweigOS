@@ -22,7 +22,7 @@ pub fn run() i64 {
     {
         return -11; // EAGAIN: worker has not published its entry point.
     }
-    if (state.run_count >= abi.max_runs) return -12; // EAGAIN-style bounded slot.
+    if (state.run_count >= abi.max_runs) return -11; // EAGAIN: bounded slot is exhausted.
 
     const previous_runs = state.run_count;
     const code = context.Mapping{
