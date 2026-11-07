@@ -14,6 +14,17 @@
         size="0x1_000"
         page_size="0x1_000" />
 
+    <!-- Shared status word and dedicated stack for the single process slot. -->
+    <memory_region
+        name="process_slot_state"
+        size="0x1_000"
+        page_size="0x1_000" />
+
+    <memory_region
+        name="process_slot_stack"
+        size="0x4_000"
+        page_size="0x1_000" />
+
     <protection_domain
         name="memory_manager"
         priority="100"
@@ -26,6 +37,32 @@
             cached="true" />
     </protection_domain>
 
+    <!--
+      Phase 8: one statically provisioned execution TCB. The POSIX supervisor
+      receives only this TCB capability; the worker receives a self-TCB cap
+      solely so its payload can park itself after completing.
+    -->
+    <protection_domain
+        name="process_slot"
+        priority="101"
+        budget="1000"
+        period="10000">
+        <program_image path="zweig_slot.elf" />
+        <map
+            mr="process_slot_state"
+            vaddr="0x4200_0000"
+            perms="rw"
+            cached="true" />
+        <map
+            mr="process_slot_stack"
+            vaddr="0x4300_0000"
+            perms="rw"
+            cached="true" />
+        <cspace>
+            <cap_tcb slot="1" pd="process_slot" />
+        </cspace>
+    </protection_domain>
+
     <protection_domain
         name="posix_server"
         priority="100"
@@ -36,6 +73,14 @@
             vaddr="0x4100_0000"
             perms="rw"
             cached="true" />
+        <map
+            mr="process_slot_state"
+            vaddr="0x4200_0000"
+            perms="rw"
+            cached="true" />
+        <cspace>
+            <cap_tcb slot="1" pd="process_slot" />
+        </cspace>
     </protection_domain>
 
     <protection_domain
