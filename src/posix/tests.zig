@@ -9,4 +9,5 @@ test {
     _ = @import("process_manager.zig");
     _ = @import("process_resources.zig");
     _ = @import("process_lifecycle.zig");
+    _ = @import("x86_64_context.zig");
 }
