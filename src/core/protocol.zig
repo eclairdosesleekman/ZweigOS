@@ -26,8 +26,8 @@ pub const Stats = struct {
 
 test "operation IDs remain stable for the wire ABI" {
     const std = @import("std");
-    try std.testing.expectEqual(@as(u64, 1), @intFromEnum(Operation.ping));
-    try std.testing.expectEqual(@as(u64, 2), @intFromEnum(Operation.allocate_pages));
-    try std.testing.expectEqual(@as(u64, 3), @intFromEnum(Operation.release_pages));
-    try std.testing.expectEqual(@as(u64, 4), @intFromEnum(Operation.get_stats));
+    try std.testing.expectEqual(@as(u64, 1), @backingInt(Operation.ping));
+    try std.testing.expectEqual(@as(u64, 2), @backingInt(Operation.allocate_pages));
+    try std.testing.expectEqual(@as(u64, 3), @backingInt(Operation.release_pages));
+    try std.testing.expectEqual(@as(u64, 4), @backingInt(Operation.get_stats));
 }
