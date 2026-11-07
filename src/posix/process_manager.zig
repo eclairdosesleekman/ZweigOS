@@ -77,7 +77,10 @@ pub const Table = struct {
     }!ProcessInfo {
         const parent = self.find(parent_id) orelse return error.StaleProcessId;
         const parent_state = self.registry.state(parent_id) catch return error.StaleProcessId;
-        if (parent_state != .running) return error.ParentNotRunning;
+        // A terminated parent may still need to reap already-terminated children.
+        // Only a never-started parent is unable to wait; preserving this cleanup
+        // path lets an ancestor reap the parent after its descendants are gone.
+        if (parent_state == .starting) return error.ParentNotRunning;
         if (self.next_pid == 0) return error.ProcessIdExhausted;
         const child_record = self.freeRecord() orelse return error.TableFull;
 
