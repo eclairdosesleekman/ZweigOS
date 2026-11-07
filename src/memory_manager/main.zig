@@ -44,8 +44,12 @@ export fn zweig_memory_dispatch(
     if (channel != expected_channel) return @intFromEnum(protocol.Status.invalid_request);
     if (!ensureAllocator()) return @intFromEnum(protocol.Status.internal_error);
 
-    const operation = std.meta.intToEnum(protocol.Operation, operation_raw) catch {
-        return @intFromEnum(protocol.Status.invalid_request);
+    const operation: protocol.Operation = switch (operation_raw) {
+        @intFromEnum(protocol.Operation.ping) => .ping,
+        @intFromEnum(protocol.Operation.allocate_pages) => .allocate_pages,
+        @intFromEnum(protocol.Operation.release_pages) => .release_pages,
+        @intFromEnum(protocol.Operation.get_stats) => .get_stats,
+        else => return @intFromEnum(protocol.Status.invalid_request),
     };
 
     switch (operation) {
