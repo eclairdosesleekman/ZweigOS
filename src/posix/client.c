@@ -17,18 +17,6 @@
 #define ZWEIG_POSIX_BUFFER ((uintptr_t)0x41000000)
 #define ZWEIG_POSIX_BUFFER_SIZE 4096
 
-static long syscall_result(void)
-{
-    microkit_msginfo reply = microkit_ppcall(
-        ZWEIG_POSIX_CHANNEL,
-        microkit_msginfo_new(0, 0));
-
-    if (microkit_msginfo_get_count(reply) != 1) {
-        return -5; /* EIO */
-    }
-    return (long)(int64_t)microkit_mr_get(0);
-}
-
 long zweig_syscall0(uint64_t number)
 {
     microkit_msginfo reply = microkit_ppcall(
