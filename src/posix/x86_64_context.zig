@@ -170,7 +170,7 @@ test "initial context rejects non-user, unaligned, and overflowing ranges" {
         }, stack),
     );
     try std.testing.expectError(
-        error.InvalidInstructionPointer,
+        error.EntryNotExecutable,
         build(0xffff_8000_0000_0000, 0x70_4000, code, stack),
     );
 }
