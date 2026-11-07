@@ -7,6 +7,11 @@
 #include <microkit.h>
 #include <sel4/sel4.h>
 
+void zweig_console_puts(const char *message)
+{
+    microkit_dbg_puts(message);
+}
+
 int zweig_process_slot_park(void)
 {
     seL4_CPtr self_tcb = microkit_cspace_root_slot_to_cptr(1);
