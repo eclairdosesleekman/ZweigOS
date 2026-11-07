@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Passive memory service running in its own Microkit Protection Domain.
 
+// Microkit's libmicrokit supplies the actual _start symbol. This declaration
+// tells Zig not to synthesize the hosted std.start entry point.
+pub const _start = {};
+
 const PageAllocator = @import("../core/page_allocator.zig").PageAllocator;
 const protocol = @import("../core/protocol.zig");
 
@@ -41,47 +45,47 @@ export fn zweig_memory_dispatch(
     value_out: *u64,
 ) u32 {
     value_out.* = 0;
-    if (channel != expected_channel) return @intFromEnum(protocol.Status.invalid_request);
-    if (!ensureAllocator()) return @intFromEnum(protocol.Status.internal_error);
+    if (channel != expected_channel) return @backingInt(protocol.Status.invalid_request);
+    if (!ensureAllocator()) return @backingInt(protocol.Status.internal_error);
 
     const operation: protocol.Operation = switch (operation_raw) {
-        @intFromEnum(protocol.Operation.ping) => .ping,
-        @intFromEnum(protocol.Operation.allocate_pages) => .allocate_pages,
-        @intFromEnum(protocol.Operation.release_pages) => .release_pages,
-        @intFromEnum(protocol.Operation.get_stats) => .get_stats,
-        else => return @intFromEnum(protocol.Status.invalid_request),
+        @backingInt(protocol.Operation.ping) => .ping,
+        @backingInt(protocol.Operation.allocate_pages) => .allocate_pages,
+        @backingInt(protocol.Operation.release_pages) => .release_pages,
+        @backingInt(protocol.Operation.get_stats) => .get_stats,
+        else => return @backingInt(protocol.Status.invalid_request),
     };
 
     switch (operation) {
         .ping => {
             value_out.* = 0x5a57_4549_474f_534f;
-            return @intFromEnum(protocol.Status.ok);
+            return @backingInt(protocol.Status.ok);
         },
         .allocate_pages => {
             if (argument == 0 or argument > PageAllocator.max_pages) {
-                return @intFromEnum(protocol.Status.invalid_argument);
+                return @backingInt(protocol.Status.invalid_argument);
             }
             const lease = allocator.allocate(@intCast(argument)) catch |err| {
                 return switch (err) {
-                    error.InvalidPageCount => @intFromEnum(protocol.Status.invalid_argument),
-                    error.OutOfMemory, error.LeaseTableFull => @intFromEnum(protocol.Status.out_of_memory),
+                    error.InvalidPageCount => @backingInt(protocol.Status.invalid_argument),
+                    error.OutOfMemory, error.LeaseTableFull => @backingInt(protocol.Status.out_of_memory),
                 };
             };
             value_out.* = lease.token;
-            return @intFromEnum(protocol.Status.ok);
+            return @backingInt(protocol.Status.ok);
         },
         .release_pages => {
             allocator.release(argument) catch |err| {
                 return switch (err) {
-                    error.InvalidToken, error.StaleToken => @intFromEnum(protocol.Status.stale_lease),
-                    error.CorruptState => @intFromEnum(protocol.Status.internal_error),
+                    error.InvalidToken, error.StaleToken => @backingInt(protocol.Status.stale_lease),
+                    error.CorruptState => @backingInt(protocol.Status.internal_error),
                 };
             };
-            return @intFromEnum(protocol.Status.ok);
+            return @backingInt(protocol.Status.ok);
         },
         .get_stats => {
             value_out.* = allocator.freePages();
-            return @intFromEnum(protocol.Status.ok);
+            return @backingInt(protocol.Status.ok);
         },
     }
 }

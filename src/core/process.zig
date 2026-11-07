@@ -39,9 +39,9 @@ const Entry = struct {
 };
 
 pub const Table = struct {
-    entries: [max_processes]Entry = [_]Entry{.{}} ** max_processes,
+    entries: [max_processes]Entry = @splat(.{}),
 
-    pub fn register(self: *Table, domain_id: u16) error{AlreadyRegistered, TableFull}!Id {
+    pub fn register(self: *Table, domain_id: u16) error{ AlreadyRegistered, TableFull }!Id {
         for (self.entries) |entry| {
             if (entry.active and entry.domain_id == domain_id) return error.AlreadyRegistered;
         }
@@ -66,7 +66,11 @@ pub const Table = struct {
         entry.state = .running;
     }
 
-    pub fn markExited(self: *Table, id: Id, exit_code: i32) error{StaleProcessId}!void {
+    pub fn markExited(
+        self: *Table,
+        id: Id,
+        exit_code: i32,
+    ) error{StaleProcessId}!void {
         const entry = self.getEntry(id) orelse return error.StaleProcessId;
         entry.state = .exited;
         entry.exit_code = exit_code;
@@ -86,7 +90,9 @@ pub const Table = struct {
         const index: usize = id.slot;
         if (index >= max_processes) return error.StaleProcessId;
         const entry = self.entries[index];
-        if (!entry.active or entry.generation != id.generation) return error.StaleProcessId;
+        if (!entry.active or entry.generation != id.generation) {
+            return error.StaleProcessId;
+        }
         return entry.state;
     }
 

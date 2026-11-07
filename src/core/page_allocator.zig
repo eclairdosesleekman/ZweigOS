@@ -59,8 +59,8 @@ pub const PageAllocator = struct {
         return .{
             .arena = arena,
             .page_count = count,
-            .allocated = [_]bool{false} ** max_pages,
-            .leases = [_]LeaseSlot{.{}} ** max_leases,
+            .allocated = @splat(false),
+            .leases = @splat(.{}),
         };
     }
 

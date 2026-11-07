@@ -15,12 +15,19 @@ The long-term goals are a capability-oriented system, predictable resource isola
 
 ### Phase 2: core service foundations
 
-- Two statically composed Protection Domains connected by a Microkit protected-procedure-call channel.
-- A passive Zig memory service backed by a 1 MiB, 4 KiB-page arena.
-- A generation-checked contiguous page allocator and allocation/release RPC.
-- Zig foundations for typed service handles, process metadata, MCS profile validation, and ELF64 validation.
+- Active bootstrap and passive memory-manager Protection Domains.
+- A Microkit protected-procedure-call channel with Scheduling Context donation.
+- A 1 MiB memory-service arena, page leases, and generation-checked allocation/release RPC.
+- Zig foundations for service capabilities, process metadata, MCS profiles, and ELF64 validation.
 
-Phase 2 does not yet create dynamic seL4 processes or retype Untyped memory into Frame capabilities. See [docs/phase-2.md](docs/phase-2.md) for the exact boundaries.
+### Phase 3: POSIX environment foundation
+
+- A passive POSIX syscall service connected to the bootstrap task over a second PP channel.
+- A shared I/O page for copying write buffers across address spaces.
+- A stable Zweig syscall-number ABI and C syscall veneers for `read`, `write`, `close`, and `getpid`.
+- Bootstrap standard-descriptor state and a bounded ELF64 load plan with a guarded stack layout.
+
+Phase 3 is an initial syscall path, not full POSIX or a musl port. The current service supports console output, a bootstrap PID, descriptor validation/close, and a nonblocking-style `EAGAIN` result for stdin until an input driver exists. See [docs/phase-3.md](docs/phase-3.md) for the exact boundaries.
 
 ## Toolchain
 
@@ -42,7 +49,7 @@ make run
 
 The QEMU command boots the SDK's `sel4_32.elf` kernel image with the Microkit-generated `build/loader.img`. The 32-bit kernel ELF is intentional for Microkit's x86-64 QEMU boot flow; the Protection Domains are 64-bit.
 
-Run the bounded boot and IPC assertion with:
+Run the bounded memory and POSIX syscall assertions with:
 
 ```sh
 make smoke-test
@@ -52,7 +59,9 @@ make smoke-test
 
 - `src/` — Zig components, C ABI adapters, and core modules.
 - `src/memory_manager/` — passive memory service.
-- `src/core/` — protocol, allocator, handles, process/scheduling metadata, ELF validation, and tests.
+- `src/posix/` — syscall service, ABI, descriptor table, and ELF load planning.
+- `src/core/` — shared IPC protocol, allocator, handles, process/scheduling metadata, and ELF validation.
+- `include/zweig/` — C-facing syscall headers.
 - `system/` — Microkit system description.
 - `docs/` — milestone-specific design and build notes.
 - `.github/workflows/` — toolchain build and QEMU smoke tests.

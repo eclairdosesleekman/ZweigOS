@@ -10,13 +10,13 @@ pub const Profile = struct {
     budget_us: u64,
     period_us: u64,
 
-    pub fn validate(self: Profile) error{InvalidPriority, InvalidPeriod, InvalidBudget}!void {
+    pub fn validate(self: Profile) error{ InvalidPriority, InvalidPeriod, InvalidBudget }!void {
         if (self.priority > 254) return error.InvalidPriority;
         if (self.period_us == 0) return error.InvalidPeriod;
         if (self.budget_us == 0 or self.budget_us > self.period_us) return error.InvalidBudget;
     }
 
-    pub fn utilizationPermille(self: Profile) error{InvalidPriority, InvalidPeriod, InvalidBudget}!u16 {
+    pub fn utilizationPermille(self: Profile) error{ InvalidPriority, InvalidPeriod, InvalidBudget }!u16 {
         try self.validate();
         const scaled: u128 = @as(u128, self.budget_us) * 1000;
         return @intCast(scaled / self.period_us);

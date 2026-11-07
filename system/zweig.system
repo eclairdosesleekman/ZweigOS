@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Phase 2: statically composed client and passive memory service.
-  The memory pool is mapped only into the memory service.
+  Phase 3: bootstrap client plus passive memory and POSIX services.
+  The POSIX I/O buffer is mapped into both the client and POSIX service only.
 -->
 <system>
     <memory_region
         name="memory_pool"
         size="0x10_0000"
+        page_size="0x1_000" />
+
+    <memory_region
+        name="posix_io_buffer"
+        size="0x1_000"
         page_size="0x1_000" />
 
     <protection_domain
@@ -22,15 +27,39 @@
     </protection_domain>
 
     <protection_domain
+        name="posix_server"
+        priority="100"
+        passive="true">
+        <program_image path="zweig_posix.elf" />
+        <map
+            mr="posix_io_buffer"
+            vaddr="0x4100_0000"
+            perms="rw"
+            cached="true" />
+    </protection_domain>
+
+    <protection_domain
         name="zweig_init"
         priority="99"
         budget="1000"
         period="10000">
         <program_image path="zweig_init.elf" />
+        <map
+            mr="posix_io_buffer"
+            vaddr="0x4100_0000"
+            perms="rw"
+            cached="true" />
     </protection_domain>
 
+    <!-- Memory service: client uses channel 0 and donates its Scheduling Context. -->
     <channel>
         <end pd="memory_manager" id="0" />
         <end pd="zweig_init" id="0" pp="true" />
+    </channel>
+
+    <!-- POSIX service: client uses channel 1 and shares the I/O page. -->
+    <channel>
+        <end pd="posix_server" id="0" />
+        <end pd="zweig_init" id="1" pp="true" />
     </channel>
 </system>
