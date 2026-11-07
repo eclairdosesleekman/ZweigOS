@@ -54,7 +54,7 @@ pub const Table = struct {
         self: *const Table,
         service: Service,
         requested: Rights,
-    ) error{NotFound, PermissionDenied}!ServiceCapability {
+    ) error{ NotFound, PermissionDenied }!ServiceCapability {
         for (self.entries) |entry| {
             if (entry) |installed| {
                 if (installed.service == service) {
