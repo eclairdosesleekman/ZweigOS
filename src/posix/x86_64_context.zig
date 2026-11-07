@@ -55,7 +55,7 @@ pub fn build(
         return error.InvalidInstructionPointer;
     }
     if (stack_pointer % 16 != 0 or stack_pointer <= stack.virtual_address or
-        stack_pointer > endOf(stack) or stack_pointer > user_address_end)
+        stack_pointer > endOf(stack) or stack_pointer >= user_address_end)
     {
         return error.InvalidStackPointer;
     }
