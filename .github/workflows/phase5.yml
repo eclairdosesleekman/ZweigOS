@@ -45,6 +45,11 @@ jobs:
           sdk_root="${sdk_tool%/bin/microkit}"
           echo "MICROKIT_SDK=$sdk_root" >> "$GITHUB_ENV"
 
+      - name: Show Zig formatter output for the new loader
+        run: |
+          zig fmt src/posix/image_loader.zig
+          git diff -- src/posix/image_loader.zig
+
       - name: Run formatting, unit tests, and Microkit system build
         run: make check test build
 
