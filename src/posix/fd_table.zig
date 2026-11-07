@@ -19,7 +19,7 @@ const Entry = struct {
 };
 
 pub const Table = struct {
-    entries: [max_fds]Entry = [_]Entry{.{}} ** max_fds,
+    entries: [max_fds]Entry = @splat(.{}),
 
     pub fn standard() Table {
         var table = Table{};
