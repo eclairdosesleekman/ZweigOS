@@ -11,6 +11,7 @@ pub const Syscall = enum(u64) {
     write = 2,
     close = 3,
     getpid = 4,
+    run_slot = 5,
 };
 
 pub const Errno = enum(u16) {
@@ -39,6 +40,7 @@ test "Zweig syscall numbers and errno encoding are stable" {
     try std.testing.expectEqual(@as(u64, 2), @backingInt(Syscall.write));
     try std.testing.expectEqual(@as(u64, 3), @backingInt(Syscall.close));
     try std.testing.expectEqual(@as(u64, 4), @backingInt(Syscall.getpid));
+    try std.testing.expectEqual(@as(u64, 5), @backingInt(Syscall.run_slot));
     try std.testing.expectEqual(@as(i64, -9), failure(.bad_fd));
     try std.testing.expect(isFailure(failure(.try_again)));
     try std.testing.expect(!isFailure(128));
