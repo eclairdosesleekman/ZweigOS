@@ -3,7 +3,7 @@
 
 pub const _start = {};
 
-const component = @import("posix/server.zig");
+const component = @import("posix/service.zig");
 
 comptime {
     _ = component.zweig_posix_dispatch;
