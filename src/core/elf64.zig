@@ -66,7 +66,7 @@ pub fn validate(image: []const u8) Error!Header {
     const phentsize = read16(image, 54);
     const phnum = read16(image, 56);
 
-    if (ehsize < 64) return error.InvalidHeaderSize;
+    if (ehsize != 64) return error.InvalidHeaderSize;
     if (phnum == 0 or phentsize < 56) return error.InvalidProgramHeaderSize;
 
     const table_bytes = @as(u64, phentsize) * @as(u64, phnum);
