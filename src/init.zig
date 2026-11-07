@@ -79,7 +79,7 @@ fn exerciseMemoryService() bool {
 fn exercisePosixAbi() bool {
     const greeting: [:0]const u8 = "Zweig OS: POSIX write via seL4 IPC\r\n";
     const written = zweig_write(1, greeting.ptr, greeting.len);
-    if (written != greeting.len) return false;
+    if (written != @as(i64, @intCast(greeting.len))) return false;
 
     // The process ID is the statically composed bootstrap task for now.
     if (zweig_getpid() != 1) return false;
