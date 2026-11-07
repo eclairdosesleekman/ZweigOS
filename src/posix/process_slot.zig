@@ -6,7 +6,7 @@ const context = @import("x86_64_context.zig");
 
 extern fn zweig_process_slot_start(entry: u64, stack_pointer: u64, rflags: u64) c_int;
 
-fn sharedState() *volatile abi.SharedState {
+fn sharedState() *abi.SharedState {
     return @ptrFromInt(abi.state_address);
 }
 
@@ -16,15 +16,14 @@ fn sharedState() *volatile abi.SharedState {
 /// kernel object.
 pub fn run() i64 {
     const state = sharedState();
-    @fence(.seq_cst);
-    if (state.magic != abi.ready_magic or state.entry == 0 or
+    if (@atomicLoad(u64, &state.magic, .acquire) != abi.ready_magic or state.entry == 0 or
         state.entry_page != (state.entry & ~@as(u64, 4095)))
     {
         return -11; // EAGAIN: worker has not published its entry point.
     }
-    if (state.run_count >= abi.max_runs) return -11; // EAGAIN: bounded slot is exhausted.
+    const previous_runs = @atomicLoad(u64, &state.run_count, .acquire);
+    if (previous_runs >= abi.max_runs) return -11; // EAGAIN: bounded slot is exhausted.
 
-    const previous_runs = state.run_count;
     const code = context.Mapping{
         .virtual_address = state.entry_page,
         .byte_length = 4096,
@@ -48,9 +47,10 @@ pub fn run() i64 {
 
     // With a higher-priority static SC, the worker runs immediately, records
     // its completion, and self-suspends before the supervisor resumes here.
-    @fence(.seq_cst);
-    if (state.run_count != previous_runs + 1 or state.last_result != abi.result_magic) {
+    const completed_runs = @atomicLoad(u64, &state.run_count, .acquire);
+    const completion = @atomicLoad(u64, &state.last_result, .acquire);
+    if (completed_runs != previous_runs + 1 or completion != abi.result_magic) {
         return -5;
     }
-    return @intCast(state.run_count);
+    return @intCast(completed_runs);
 }
