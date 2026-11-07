@@ -19,6 +19,7 @@ SEL4_KERNEL := $(BOARD_DIR)/elf/sel4_32.elf
 APP_ELF := $(BUILD_DIR)/zweig_init.elf
 MEMORY_ELF := $(BUILD_DIR)/zweig_memory.elf
 POSIX_ELF := $(BUILD_DIR)/zweig_posix.elf
+PROCESS_SLOT_ELF := $(BUILD_DIR)/zweig_slot.elf
 SYSTEM_IMAGE := $(BUILD_DIR)/loader.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 
@@ -26,6 +27,8 @@ CLIENT_SHIM_OBJ := $(BUILD_DIR)/microkit_client_shim.o
 SERVER_SHIM_OBJ := $(BUILD_DIR)/microkit_server_shim.o
 POSIX_CLIENT_OBJ := $(BUILD_DIR)/posix_client.o
 POSIX_SERVER_SHIM_OBJ := $(BUILD_DIR)/posix_server_shim.o
+PROCESS_SLOT_SHIM_OBJ := $(BUILD_DIR)/process_slot_shim.o
+PROCESS_SLOT_ENTRY_OBJ := $(BUILD_DIR)/process_slot_entry.o
 CRT0_OBJ := $(BUILD_DIR)/microkit_crt0.o
 
 CORE_SOURCES := \
@@ -36,6 +39,7 @@ CORE_SOURCES := \
 	src/core/process.zig \
 	src/core/scheduling.zig \
 	src/core/elf64.zig \
+	src/core/process_slot_abi.zig \
 	src/core/tests.zig
 
 POSIX_SOURCES := \
@@ -44,6 +48,8 @@ POSIX_SOURCES := \
 	src/posix/load_plan.zig \
 	src/posix/image_loader.zig \
 	src/posix/process_resources.zig \
+	src/posix/x86_64_context.zig \
+	src/posix/process_slot.zig \
 	src/posix/process_lifecycle.zig \
 	src/posix/process_manager.zig \
 	src/posix/service.zig \
@@ -51,7 +57,7 @@ POSIX_SOURCES := \
 	src/posix/tests.zig
 
 ZIG_SOURCES := src/init.zig src/memory_manager/main.zig src/memory_manager_root.zig \
-	src/posix_server_root.zig src/tests.zig $(CORE_SOURCES) $(POSIX_SOURCES)
+	src/posix_server_root.zig src/process_slot_root.zig src/process_slot/main.zig src/tests.zig $(CORE_SOURCES) $(POSIX_SOURCES)
 
 QEMU_ARGS = -cpu qemu64,+fsgsbase,+pdpe1gb,+xsaveopt,+xsave \
 	-m 1G \
@@ -73,7 +79,7 @@ toolchain-check:
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 7 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 8 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -95,6 +101,12 @@ $(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/un
 
 $(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)/.dir
 	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+
+$(PROCESS_SLOT_SHIM_OBJ): src/process_slot_shim.c | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+
+$(PROCESS_SLOT_ENTRY_OBJ): src/process_slot_entry.s | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-freestanding -c "$<" -o "$@"
 
 $(CRT0_OBJ): src/microkit_crt0.s | $(BUILD_DIR)/.dir
 	"$(ZIG)" cc -target x86_64-freestanding -c "$<" -o "$@"
@@ -135,7 +147,19 @@ $(POSIX_ELF): src/posix_server_root.zig $(POSIX_SOURCES) $(CRT0_OBJ) $(POSIX_SER
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) $(POSIX_ELF) | $(BUILD_DIR)/.dir
+$(PROCESS_SLOT_ELF): src/process_slot_root.zig src/process_slot/main.zig $(CORE_SOURCES) $(CRT0_OBJ) $(PROCESS_SLOT_SHIM_OBJ) $(PROCESS_SLOT_ENTRY_OBJ) Makefile
+	"$(ZIG)" build-exe src/process_slot_root.zig "$(CRT0_OBJ)" "$(PROCESS_SLOT_SHIM_OBJ)" "$(PROCESS_SLOT_ENTRY_OBJ)" \
+		-target x86_64-freestanding \
+		-O Debug \
+		-fentry=_start --force_undefined _start \
+		-fno-PIE \
+		-fno-stack-protector \
+		-L"$(BOARD_DIR)/lib" \
+		-lmicrokit \
+		-T"$(MICROKIT_LINKER_SCRIPT)" \
+		-femit-bin="$@"
+
+$(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) $(POSIX_ELF) $(PROCESS_SLOT_ELF) | $(BUILD_DIR)/.dir
 	"$(MICROKIT_TOOL)" system/zweig.system \
 		--search-path "$(BUILD_DIR)" \
 		--board "$(MICROKIT_BOARD)" \
@@ -165,6 +189,9 @@ smoke-test: check test build
 		}; \
 		grep -Fq "Zweig Phase 4: process-aware POSIX syscall PASS" "$(BUILD_DIR)/qemu.log" || { \
 			echo "error: Phase 4 process-aware POSIX smoke-test banner was not found" >&2; exit 1; \
+		}; \
+		grep -Fq "Zweig Phase 8: seL4 TCB execution slot PASS" "$(BUILD_DIR)/qemu.log" || { \
+			echo "error: Phase 8 seL4 TCB execution slot banner was not found" >&2; exit 1; \
 		}
 
 clean:
