@@ -59,6 +59,16 @@ Phase 5 stages bytes and returns a mapping manifest; it does not create seL4 Fra
 
 Phase 6 adds a tested authority policy and resource plan, not dynamic seL4 object creation. The ledger does not mint capabilities, allocate CSpace slots, retype Untyped memory, map a VSpace, or start a TCB. See [docs/phase-6.md](docs/phase-6.md).
 
+### Phase 7: transactional process lifecycle
+
+- Coordinate Phase 4 process records, Phase 6 ELF resource plans, and the capability authority ledger through explicit prepare, commit, abort, exit, and reap transitions.
+- Reserve each process's VSpace, CNode, TCB, Scheduling Context, and frame-region metadata before the process can be marked running.
+- Roll back reserved capabilities when a prepared launch is aborted; make the failed process waitable by its parent.
+- On reap, verify direct parent/child ownership, revoke delegated descendants, destroy every root reservation, and then remove the process record.
+- Track per-resource cleanup progress so a failed teardown can be retried without re-destroying already released resources.
+
+Phase 7 is a transactional user-space lifecycle coordinator. Committing a launch updates the process policy state only; it does not resume a seL4 TCB or execute the staged ELF. See [docs/phase-7.md](docs/phase-7.md).
+
 ## Toolchain
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)
@@ -89,7 +99,7 @@ make smoke-test
 
 - `src/` — Zig components, C ABI adapters, and core modules.
 - `src/memory_manager/` — passive memory service.
-- `src/posix/` — syscall service, ABI, descriptor table, process manager, ELF planning, staging, and process resource planning.
+- `src/posix/` — syscall service, ABI, descriptor table, process manager, ELF planning, staging, process resource planning, and lifecycle coordination.
 - `src/core/` — shared IPC protocol, allocator, handles, process/scheduling metadata, ELF validation, and object authority.
 - `include/zweig/` — C-facing syscall headers.
 - `system/` — Microkit system description.
