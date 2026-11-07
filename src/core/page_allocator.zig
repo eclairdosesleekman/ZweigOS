@@ -161,9 +161,9 @@ pub const PageAllocator = struct {
 test "allocator reserves contiguous pages, zeroes them, and releases them" {
     const std = @import("std");
     var backing: [8 * page_size]u8 align(page_size) = undefined;
-    @memset(&backing, 0xaa);
+    @memset(backing[0..], 0xaa);
 
-    var allocator = try PageAllocator.init(&backing);
+    var allocator = try PageAllocator.init(backing[0..]);
     const lease = try allocator.allocate(3);
 
     try std.testing.expectEqual(@as(usize, 5), allocator.freePages());
@@ -179,7 +179,7 @@ test "allocator reserves contiguous pages, zeroes them, and releases them" {
 test "allocator rejects zero and oversized requests without changing state" {
     const std = @import("std");
     var backing: [4 * page_size]u8 align(page_size) = undefined;
-    var allocator = try PageAllocator.init(&backing);
+    var allocator = try PageAllocator.init(backing[0..]);
 
     try std.testing.expectError(error.InvalidPageCount, allocator.allocate(0));
     try std.testing.expectError(error.InvalidPageCount, allocator.allocate(5));
@@ -189,7 +189,7 @@ test "allocator rejects zero and oversized requests without changing state" {
 test "allocator detects fragmentation when a contiguous run is unavailable" {
     const std = @import("std");
     var backing: [6 * page_size]u8 align(page_size) = undefined;
-    var allocator = try PageAllocator.init(&backing);
+    var allocator = try PageAllocator.init(backing[0..]);
 
     const a = try allocator.allocate(2);
     const b = try allocator.allocate(2);
