@@ -78,20 +78,20 @@ $(BUILD_DIR)/.dir:
 	touch "$@"
 
 $(CLIENT_SHIM_OBJ): src/microkit_client_shim.c | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(SERVER_SHIM_OBJ): src/microkit_server_shim.c | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/unistd.h | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
 	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
-		-target x86_64-linux-gnu \
+		-target x86_64-freestanding \
 		-O Debug \
 		-fno-entry \
 		-fno-PIE \
@@ -103,7 +103,7 @@ $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(P
 
 $(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_allocator.zig $(SERVER_SHIM_OBJ) Makefile
 	"$(ZIG)" build-exe src/memory_manager/main.zig "$(SERVER_SHIM_OBJ)" \
-		-target x86_64-linux-gnu \
+		-target x86_64-freestanding \
 		-O Debug \
 		-fno-entry \
 		-fno-PIE \
@@ -115,7 +115,7 @@ $(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_a
 
 $(POSIX_ELF): src/posix/server.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Makefile
 	"$(ZIG)" build-exe src/posix/server.zig "$(POSIX_SERVER_SHIM_OBJ)" \
-		-target x86_64-linux-gnu \
+		-target x86_64-freestanding \
 		-O Debug \
 		-fno-entry \
 		-fno-PIE \
