@@ -45,20 +45,22 @@ QEMU_ARGS = -cpu qemu64,+fsgsbase,+pdpe1gb,+xsaveopt,+xsave \
 	-kernel "$(SEL4_KERNEL)" \
 	-initrd "$(SYSTEM_IMAGE)"
 
-.PHONY: all check test build run smoke-test clean
+.PHONY: all toolchain-check check test build run smoke-test clean
 
 all: build
 
-check:
+toolchain-check:
 	@command -v "$(ZIG)" >/dev/null 2>&1 || { echo "error: Zig is required (expected $(ZIG_VERSION))" >&2; exit 1; }
-	@test "$$($(ZIG) version)" = "$(ZIG_VERSION)" || { echo "error: expected Zig $(ZIG_VERSION), found $$($(ZIG) version)" >&2; exit 1; }
+	@test "$($(ZIG) version)" = "$(ZIG_VERSION)" || { echo "error: expected Zig $(ZIG_VERSION), found $($(ZIG) version)" >&2; exit 1; }
+	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
+
+check: toolchain-check
 	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 2 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LINKER_SCRIPT)" || { echo "error: Microkit linker script not found: $(MICROKIT_LINKER_SCRIPT)" >&2; exit 1; }
 	@test -f "$(SEL4_KERNEL)" || { echo "error: x86-64 QEMU kernel image not found: $(SEL4_KERNEL)" >&2; exit 1; }
-	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 $(BUILD_DIR):
 	mkdir -p "$@"
