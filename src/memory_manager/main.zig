@@ -8,7 +8,7 @@ pub const _start = {};
 const PageAllocator = @import("../core/page_allocator.zig").PageAllocator;
 const protocol = @import("../core/protocol.zig");
 
-extern "c" fn zweig_console_puts(message: [*:0]const u8) void;
+extern fn zweig_console_puts(message: [*:0]const u8) void;
 
 const arena_base: usize = 0x4000_0000;
 const arena_size: usize = 0x10_0000;

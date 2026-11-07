@@ -40,6 +40,7 @@ POSIX_SOURCES := \
 	src/posix/abi.zig \
 	src/posix/fd_table.zig \
 	src/posix/load_plan.zig \
+	src/posix/process_manager.zig \
 	src/posix/service.zig \
 	src/posix/server.zig \
 	src/posix/tests.zig
@@ -66,7 +67,7 @@ toolchain-check:
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 3 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 4 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -153,8 +154,8 @@ smoke-test: check test build
 		grep -Fq "Zweig Phase 2: memory RPC PASS" "$(BUILD_DIR)/qemu.log" || { \
 			echo "error: memory RPC smoke-test banner was not found" >&2; exit 1; \
 		}; \
-		grep -Fq "Zweig Phase 3: POSIX syscall PASS" "$(BUILD_DIR)/qemu.log" || { \
-			echo "error: POSIX syscall smoke-test banner was not found" >&2; exit 1; \
+		grep -Fq "Zweig Phase 4: process-aware POSIX syscall PASS" "$(BUILD_DIR)/qemu.log" || { \
+			echo "error: Phase 4 process-aware POSIX smoke-test banner was not found" >&2; exit 1; \
 		}
 
 clean:

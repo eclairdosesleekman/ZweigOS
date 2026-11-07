@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-2-Clause
-//! Zweig OS Phase 3 bootstrap: exercise the memory and POSIX service ABIs.
+//! Zweig OS Phase 4 bootstrap: exercise the memory and POSIX service ABIs.
 
 // Microkit's libmicrokit supplies the actual _start symbol. This declaration
 // tells Zig not to synthesize the hosted std.start entry point.
@@ -9,16 +9,16 @@ const capability = @import("core/capability.zig");
 const protocol = @import("core/protocol.zig");
 const scheduling = @import("core/scheduling.zig");
 
-extern "c" fn zweig_console_puts(message: [*:0]const u8) void;
-extern "c" fn zweig_memory_call(
+extern fn zweig_console_puts(message: [*:0]const u8) void;
+extern fn zweig_memory_call(
     channel: u32,
     operation: u64,
     argument: u64,
     value_out: *u64,
 ) i32;
-extern "c" fn zweig_write(fd: c_int, buffer: [*]const u8, length: usize) i64;
-extern "c" fn zweig_read(fd: c_int, buffer: ?[*]u8, length: usize) i64;
-extern "c" fn zweig_getpid() i64;
+extern fn zweig_write(fd: c_int, buffer: [*]const u8, length: usize) i64;
+extern fn zweig_read(fd: c_int, buffer: ?[*]u8, length: usize) i64;
+extern fn zweig_getpid() i64;
 
 const memory_channel: u32 = 0;
 
@@ -85,7 +85,7 @@ fn exercisePosixAbi() bool {
     const written = zweig_write(1, greeting.ptr, greeting.len);
     if (written != @as(i64, @intCast(greeting.len))) return false;
 
-    // The process ID is the statically composed bootstrap task for now.
+    // Phase 4 sources the bootstrap PID from the process manager's registry.
     if (zweig_getpid() != 1) return false;
 
     // stdin exists as fd 0, but an input driver is not available yet.
@@ -102,10 +102,10 @@ export fn init() void {
     log("Zweig Phase 2: memory RPC PASS\r\n");
 
     if (!exercisePosixAbi()) {
-        log("Zweig Phase 3: POSIX syscall FAILED\r\n");
+        log("Zweig Phase 4: POSIX syscall FAILED\r\n");
         return;
     }
-    log("Zweig Phase 3: POSIX syscall PASS\r\n");
+    log("Zweig Phase 4: process-aware POSIX syscall PASS\r\n");
 }
 
 export fn notified(_: u32) void {}
