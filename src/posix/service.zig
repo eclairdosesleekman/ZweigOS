@@ -66,7 +66,7 @@ export fn zweig_posix_dispatch(
             break :blk readConsole(@intCast(argument0));
         },
         @intFromEnum(abi.Syscall.close) => blk: {
-            if (argument0 > fd_table.max_fds) break :blk abi.failure(.bad_fd);
+            if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             if (descriptors.close(@intCast(argument0))) break :blk 0;
             break :blk abi.failure(.bad_fd);
         },
