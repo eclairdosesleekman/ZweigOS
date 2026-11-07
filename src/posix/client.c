@@ -61,6 +61,22 @@ long zweig_run_slot(void)
     return zweig_syscall0(ZWEIG_SYS_RUN_SLOT);
 }
 
+long zweig_exec_slot(const void *image, size_t length)
+{
+    volatile uint8_t *shared = (volatile uint8_t *)ZWEIG_POSIX_BUFFER;
+    const uint8_t *source = (const uint8_t *)image;
+
+    if (image == NULL || length == 0 || length > ZWEIG_POSIX_BUFFER_SIZE) {
+        return -22; /* EINVAL */
+    }
+
+    for (size_t index = 0; index < length; ++index) {
+        shared[index] = source[index];
+    }
+
+    return zweig_syscall1(ZWEIG_SYS_EXEC_SLOT, (uint64_t)length);
+}
+
 long zweig_getpid(void)
 {
     return zweig_syscall0(ZWEIG_SYS_GETPID);
