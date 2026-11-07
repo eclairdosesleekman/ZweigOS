@@ -27,6 +27,7 @@ pub const Error = error{
     InvalidProgramHeaderSize,
     TruncatedProgramHeaders,
     NoLoadableSegments,
+    EntryNotExecutable,
     InvalidLoadSegment,
 };
 
@@ -77,11 +78,13 @@ pub fn validate(image: []const u8) Error!Header {
     }
 
     var loadable_count: u16 = 0;
+    var entry_is_executable = false;
     for (0..phnum) |index| {
         const offset64 = phoff + (@as(u64, @intCast(index)) * phentsize);
         const offset: usize = @intCast(offset64);
         if (read32(image, offset) != 1) continue; // PT_LOAD
 
+        const flags = read32(image, offset + 4);
         const file_offset = read64(image, offset + 8);
         const virtual_address = read64(image, offset + 16);
         const file_size = read64(image, offset + 32);
@@ -103,10 +106,14 @@ pub fn validate(image: []const u8) Error!Header {
             }
         }
 
+        if ((flags & 1) != 0 and entry >= virtual_address and entry < virtual_end_result[0]) {
+            entry_is_executable = true;
+        }
         loadable_count += 1;
     }
 
     if (loadable_count == 0) return error.NoLoadableSegments;
+    if (!entry_is_executable) return error.EntryNotExecutable;
 
     return .{
         .entry = entry,
@@ -155,6 +162,7 @@ test "ELF64 validator accepts an x86-64 loadable image" {
     write16(&image, 56, 1);
 
     write32(&image, 64, 1); // PT_LOAD
+    write32(&image, 68, 1); // PF_X
     write64(&image, 72, 120);
     write64(&image, 80, 0x20_0000);
     write64(&image, 96, 16);
@@ -166,7 +174,7 @@ test "ELF64 validator accepts an x86-64 loadable image" {
     try std.testing.expectEqual(@as(u16, 1), header.loadable_segment_count);
 }
 
-test "ELF64 validator rejects non-x86-64 and truncated segment data" {
+test "ELF64 validator rejects non-x86-64 and malformed load segment data" {
     var image = [_]u8{0} ** 136;
     image[0] = 0x7f;
     image[1] = 'E';
@@ -185,7 +193,9 @@ test "ELF64 validator rejects non-x86-64 and truncated segment data" {
     try std.testing.expectError(error.UnsupportedMachine, validate(&image));
 
     write16(&image, 18, 62);
+    write64(&image, 24, 0x20_0000);
     write32(&image, 64, 1);
+    write32(&image, 68, 1);
     write64(&image, 72, 120);
     write64(&image, 80, 0x20_0000);
     write64(&image, 96, 32);
