@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: BSD-2-Clause
+//! Runtime adapter for the single statically provisioned Phase 8 TCB slot.
+
+const abi = @import("../core/process_slot_abi.zig");
+const context = @import("x86_64_context.zig");
+
+extern fn zweig_process_slot_start(entry: u64, stack_pointer: u64, rflags: u64) c_int;
+
+fn sharedState() *volatile abi.SharedState {
+    return @ptrFromInt(abi.state_address);
+}
+
+/// Install and resume the worker's initial x86-64 context. The worker TCB,
+/// stack region, and its CSpace/VSpace are statically provisioned in the SDF;
+/// this call changes registers on that existing TCB rather than creating a new
+/// kernel object.
+pub fn run() i64 {
+    const state = sharedState();
+    @fence(.seq_cst);
+    if (state.magic != abi.ready_magic or state.entry == 0 or
+        state.entry_page != (state.entry & ~@as(u64, 4095)))
+    {
+        return -11; // EAGAIN: worker has not published its entry point.
+    }
+    if (state.run_count >= abi.max_runs) return -12; // EAGAIN-style bounded slot.
+
+    const previous_runs = state.run_count;
+    const code = context.Mapping{
+        .virtual_address = state.entry_page,
+        .byte_length = 4096,
+        .readable = true,
+        .writable = false,
+        .executable = true,
+    };
+    const stack = context.Mapping{
+        .virtual_address = abi.stack_bottom,
+        .byte_length = abi.stack_size,
+        .readable = true,
+        .writable = true,
+        .executable = false,
+    };
+    const initial = context.build(state.entry, abi.stack_top, code, stack) catch {
+        return -22; // EINVAL: entry or stack does not fit the configured slot.
+    };
+
+    const status = zweig_process_slot_start(initial.rip, initial.rsp, initial.rflags);
+    if (status != 0) return -5; // EIO: the seL4 TCB operation failed.
+
+    // With a higher-priority static SC, the worker runs immediately, records
+    // its completion, and self-suspends before the supervisor resumes here.
+    @fence(.seq_cst);
+    if (state.run_count != previous_runs + 1 or state.last_result != abi.result_magic) {
+        return -5;
+    }
+    return @intCast(state.run_count);
+}
