@@ -174,6 +174,12 @@ test "allocator reserves contiguous pages, zeroes them, and releases them" {
     try allocator.release(lease.token);
     try std.testing.expectEqual(@as(usize, 8), allocator.freePages());
     try std.testing.expectError(error.StaleToken, allocator.release(lease.token));
+
+    // Reusing the slot must not make a previously released token valid again.
+    const replacement = try allocator.allocate(1);
+    try std.testing.expect(replacement.token != lease.token);
+    try std.testing.expectError(error.StaleToken, allocator.release(lease.token));
+    try allocator.release(replacement.token);
 }
 
 test "allocator rejects zero and oversized requests without changing state" {
