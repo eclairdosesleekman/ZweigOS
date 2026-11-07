@@ -18,7 +18,8 @@ pub const Profile = struct {
 
     pub fn utilizationPermille(self: Profile) error{InvalidPriority, InvalidPeriod, InvalidBudget}!u16 {
         try self.validate();
-        return @intCast((self.budget_us * 1000) / self.period_us);
+        const scaled: u128 = @as(u128, self.budget_us) * 1000;
+        return @intCast(scaled / self.period_us);
     }
 };
 
