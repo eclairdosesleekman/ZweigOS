@@ -10,4 +10,5 @@ test {
     _ = @import("process_resources.zig");
     _ = @import("process_lifecycle.zig");
     _ = @import("x86_64_context.zig");
+    _ = @import("process_slot_image.zig");
 }

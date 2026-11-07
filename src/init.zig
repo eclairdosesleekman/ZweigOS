@@ -8,6 +8,7 @@ pub const _start = {};
 const capability = @import("core/capability.zig");
 const protocol = @import("core/protocol.zig");
 const scheduling = @import("core/scheduling.zig");
+const process_slot_image = @import("posix/process_slot_image.zig");
 
 extern fn zweig_console_puts(message: [*:0]const u8) void;
 extern fn zweig_memory_call(
@@ -20,6 +21,7 @@ extern fn zweig_write(fd: c_int, buffer: [*]const u8, length: usize) i64;
 extern fn zweig_read(fd: c_int, buffer: ?[*]u8, length: usize) i64;
 extern fn zweig_getpid() i64;
 extern fn zweig_run_slot() i64;
+extern fn zweig_exec_slot(image: [*]const u8, length: usize) i64;
 
 const memory_channel: u32 = 0;
 
@@ -125,6 +127,22 @@ export fn init() void {
         return;
     }
     log("Zweig Phase 8: seL4 TCB execution slot PASS\r\n");
+
+    const first_image = process_slot_image.returnValueProgram(42);
+    const first_result = zweig_exec_slot(first_image[0..].ptr, first_image.len);
+    if (first_result != 42) {
+        log("Zweig Phase 9: first staged image failed\r\n");
+        return;
+    }
+
+    const second_image = process_slot_image.returnValueProgram(7);
+    const second_result = zweig_exec_slot(second_image[0..].ptr, second_image.len);
+    if (second_result != 7) {
+        log("Zweig Phase 9: replacement staged image failed\r\n");
+        return;
+    }
+
+    log("Zweig Phase 9: W^X staged image execution PASS\r\n");
 }
 
 export fn notified(_: u32) void {}

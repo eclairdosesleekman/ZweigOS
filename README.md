@@ -79,6 +79,15 @@ Phase 7 is a transactional user-space lifecycle coordinator. Committing a launch
 
 Phase 8 verifies a real TCB register handoff through one statically provisioned slot. It does not create kernel objects dynamically or execute arbitrary Phase 5 ELF images. See [docs/phase-8.md](docs/phase-8.md).
 
+### Phase 9: W^X staging for the static execution slot
+
+- Add a one-page executable image region with a supervisor-only RW mapping and a worker-only RX mapping.
+- Add the `EXEC_SLOT` syscall and `zweig_exec_slot` veneer to copy a bounded flat x86-64 image through the shared I/O page.
+- Enter the staged image through a trusted assembly shim, capture its RAX return value, record completion, and self-suspend the same static worker TCB.
+- Verify image bounds and replacement by executing two different payloads on the same worker TCB.
+
+Phase 9 executes caller-supplied flat machine code in a pre-mapped slot. It does not parse ELF, create dynamic kernel objects, or build arbitrary process address spaces. See [docs/phase-9.md](docs/phase-9.md).
+
 ## Toolchain
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)

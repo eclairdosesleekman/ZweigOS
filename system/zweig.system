@@ -25,6 +25,12 @@
         size="0x4_000"
         page_size="0x1_000" />
 
+    <!-- Supervisor writes through RW; the worker executes through RX. -->
+    <memory_region
+        name="process_slot_image"
+        size="0x1_000"
+        page_size="0x1_000" />
+
     <protection_domain
         name="memory_manager"
         priority="100"
@@ -58,6 +64,11 @@
             vaddr="0x4300_0000"
             perms="rw"
             cached="true" />
+        <map
+            mr="process_slot_image"
+            vaddr="0x4400_0000"
+            perms="rx"
+            cached="true" />
         <cspace>
             <cap_tcb slot="1" pd="process_slot" />
         </cspace>
@@ -76,6 +87,11 @@
         <map
             mr="process_slot_state"
             vaddr="0x4200_0000"
+            perms="rw"
+            cached="true" />
+        <map
+            mr="process_slot_image"
+            vaddr="0x4400_0000"
             perms="rw"
             cached="true" />
         <cspace>

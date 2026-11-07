@@ -15,5 +15,6 @@ long zweig_write(int fd, const void *buffer, size_t length);
 long zweig_close(int fd);
 long zweig_getpid(void);
 long zweig_run_slot(void);
+long zweig_exec_slot(const void *image, size_t length);
 
 #endif
