@@ -45,6 +45,11 @@ jobs:
           sdk_root="${sdk_tool%/bin/microkit}"
           echo "MICROKIT_SDK=$sdk_root" >> "$GITHUB_ENV"
 
+      - name: Diagnose Zig formatter output (temporary)
+        run: |
+          zig fmt src/core/capability.zig src/core/process.zig src/core/scheduling.zig
+          git diff -- src/core/capability.zig src/core/process.zig src/core/scheduling.zig
+
       - name: Run Zig core/POSIX tests and build the system image
         run: make check test build
 
