@@ -103,7 +103,7 @@ $(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) | $(BUILD_DIR)
 		-o "$(SYSTEM_IMAGE)" \
 		-r "$(REPORT_FILE)"
 
-test: check
+test: toolchain-check
 	"$(ZIG)" test src/core/tests.zig -O Debug
 
 build: check $(SYSTEM_IMAGE)
