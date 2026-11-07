@@ -1,14 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Phase 1: one statically composed Zig Protection Domain.
-  Budget and period are in microseconds (1 ms every 10 ms).
+  Phase 2: statically composed client and passive memory service.
+  The memory pool is mapped only into the memory service.
 -->
 <system>
+    <memory_region
+        name="memory_pool"
+        size="0x10_0000"
+        page_size="0x1_000" />
+
+    <protection_domain
+        name="memory_manager"
+        priority="100"
+        passive="true">
+        <program_image path="zweig_memory.elf" />
+        <map
+            mr="memory_pool"
+            vaddr="0x4000_0000"
+            perms="rw"
+            cached="true" />
+    </protection_domain>
+
     <protection_domain
         name="zweig_init"
-        priority="100"
+        priority="99"
         budget="1000"
         period="10000">
         <program_image path="zweig_init.elf" />
     </protection_domain>
+
+    <channel>
+        <end pd="memory_manager" id="0" />
+        <end pd="zweig_init" id="0" pp="true" />
+    </channel>
 </system>

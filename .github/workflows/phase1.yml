@@ -1,10 +1,6 @@
-name: Phase 1 build and QEMU smoke test
+name: Manual Microkit boot smoke test
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
