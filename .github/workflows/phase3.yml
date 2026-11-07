@@ -1,10 +1,6 @@
-name: Phase 3 POSIX environment
+name: Manual Phase 3 regression
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +8,7 @@ permissions:
 
 jobs:
   phase3:
-    name: Zig tests + Microkit x86_64 + POSIX RPC
+    name: Phase 3 POSIX regression check
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -45,8 +41,8 @@ jobs:
           sdk_root="${sdk_tool%/bin/microkit}"
           echo "MICROKIT_SDK=$sdk_root" >> "$GITHUB_ENV"
 
-      - name: Run Zig core/POSIX tests and build the system image
+      - name: Run Phase 3 regression tests and build
         run: make check test build
 
-      - name: Boot QEMU and verify memory and POSIX syscalls
+      - name: Boot QEMU and verify memory and POSIX RPC
         run: make smoke-test

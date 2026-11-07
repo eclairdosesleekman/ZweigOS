@@ -8,26 +8,33 @@
 
 const abi = @import("abi.zig");
 const fd_table = @import("fd_table.zig");
+const process_manager = @import("process_manager.zig");
 
-extern "c" fn zweig_console_putc(character: c_int) void;
+extern fn zweig_console_putc(character: c_int) void;
 
 const expected_channel: u32 = 0;
 const shared_buffer_address: usize = 0x4100_0000;
 const shared_buffer_size: usize = 4096;
-const bootstrap_pid: i64 = 1;
+const bootstrap_domain_id: u16 = 1;
 
-var descriptors: fd_table.Table = .{};
-var descriptors_ready = false;
+var processes: process_manager.Table = .{};
+var bootstrap_process: process_manager.ProcessInfo = undefined;
+var processes_ready = false;
 
-fn ensureDescriptors() void {
-    if (!descriptors_ready) {
-        descriptors = fd_table.Table.standard();
-        descriptors_ready = true;
+fn ensureProcesses() void {
+    if (!processes_ready) {
+        bootstrap_process = processes.initialize(bootstrap_domain_id) catch unreachable;
+        processes_ready = true;
     }
 }
 
+fn bootstrapDescriptors() *fd_table.Table {
+    ensureProcesses();
+    return processes.descriptors(bootstrap_process.id) orelse unreachable;
+}
+
 fn writeConsole(fd: i64, length: u64) i64 {
-    ensureDescriptors();
+    const descriptors = bootstrapDescriptors();
     if (!descriptors.canWrite(fd)) return abi.failure(.bad_fd);
     if (length > @as(u64, @intCast(shared_buffer_size))) return abi.failure(.invalid);
 
@@ -39,10 +46,9 @@ fn writeConsole(fd: i64, length: u64) i64 {
 }
 
 fn readConsole(fd: i64) i64 {
-    ensureDescriptors();
-    if (!descriptors.canRead(fd)) return abi.failure(.bad_fd);
+    if (!bootstrapDescriptors().canRead(fd)) return abi.failure(.bad_fd);
 
-    // The input device path is not part of Phase 3 yet.
+    // The input device path is not part of Phase 4 yet.
     return abi.failure(.try_again);
 }
 
@@ -53,10 +59,10 @@ export fn zweig_posix_dispatch(
     argument1: u64,
 ) i64 {
     if (channel != expected_channel) return abi.failure(.invalid);
-    ensureDescriptors();
+    ensureProcesses();
 
     return switch (syscall_number) {
-        @backingInt(abi.Syscall.getpid) => bootstrap_pid,
+        @backingInt(abi.Syscall.getpid) => @intCast(bootstrap_process.pid),
         @backingInt(abi.Syscall.write) => blk: {
             if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             break :blk writeConsole(@intCast(argument0), argument1);
@@ -67,7 +73,7 @@ export fn zweig_posix_dispatch(
         },
         @backingInt(abi.Syscall.close) => blk: {
             if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
-            if (descriptors.close(@intCast(argument0))) break :blk 0;
+            if (bootstrapDescriptors().close(@intCast(argument0))) break :blk 0;
             break :blk abi.failure(.bad_fd);
         },
         else => abi.failure(.not_implemented),
@@ -75,8 +81,8 @@ export fn zweig_posix_dispatch(
 }
 
 export fn init() void {
-    ensureDescriptors();
-    const startup: [:0]const u8 = "Zweig POSIX service: standard descriptors ready\r\n";
+    ensureProcesses();
+    const startup: [:0]const u8 = "Zweig POSIX service: process 1 ready\r\n";
     for (startup) |character| {
         zweig_console_putc(@intCast(character));
     }

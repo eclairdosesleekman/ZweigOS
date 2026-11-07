@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Generation-checked process metadata registry.
 //!
-//! Phase 2 uses this for statically composed service Protection Domains.
-//! It does not create or destroy TCBs; dynamic process creation is a later
-//! milestone that will pair records with seL4 object-management authority.
+//! Phase 2 used this for statically composed service Protection Domains.
+//! Phase 4 adds the process-state transitions consumed by the POSIX process
+//! manager. This registry remains policy metadata; it does not create TCBs.
 
 pub const max_processes: usize = 32;
 
@@ -76,6 +76,16 @@ pub const Table = struct {
         entry.exit_code = exit_code;
     }
 
+    pub fn markFailed(
+        self: *Table,
+        id: Id,
+        exit_code: i32,
+    ) error{StaleProcessId}!void {
+        const entry = self.getEntry(id) orelse return error.StaleProcessId;
+        entry.state = .failed;
+        entry.exit_code = exit_code;
+    }
+
     pub fn remove(self: *Table, id: Id) error{StaleProcessId}!void {
         const entry = self.getEntry(id) orelse return error.StaleProcessId;
         entry.active = false;
@@ -96,7 +106,21 @@ pub const Table = struct {
         return entry.state;
     }
 
+    pub fn exitCode(self: *const Table, id: Id) error{ StaleProcessId, ProcessNotExited }!i32 {
+        const entry = self.getEntryConst(id) orelse return error.StaleProcessId;
+        if (entry.state != .exited and entry.state != .failed) return error.ProcessNotExited;
+        return entry.exit_code;
+    }
+
     fn getEntry(self: *Table, id: Id) ?*Entry {
+        const index: usize = id.slot;
+        if (index >= max_processes) return null;
+        const entry = &self.entries[index];
+        if (!entry.active or entry.generation != id.generation) return null;
+        return entry;
+    }
+
+    fn getEntryConst(self: *const Table, id: Id) ?*const Entry {
         const index: usize = id.slot;
         if (index >= max_processes) return null;
         const entry = &self.entries[index];
@@ -115,6 +139,7 @@ test "process registry tracks service state and rejects stale IDs" {
     try std.testing.expectEqual(State.running, try table.state(id));
     try table.markExited(id, 23);
     try std.testing.expectEqual(State.exited, try table.state(id));
+    try std.testing.expectEqual(@as(i32, 23), try table.exitCode(id));
 
     const encoded = id.encode();
     try std.testing.expectEqual(id.generation, Id.decode(encoded).generation);
@@ -123,4 +148,14 @@ test "process registry tracks service state and rejects stale IDs" {
 
     const replacement = try table.register(8);
     try std.testing.expect(replacement.generation != id.generation);
+}
+
+test "failed process records preserve their exit status" {
+    const std = @import("std");
+    var table = Table{};
+    const id = try table.register(9);
+    try table.markFailed(id, -5);
+
+    try std.testing.expectEqual(State.failed, try table.state(id));
+    try std.testing.expectEqual(@as(i32, -5), try table.exitCode(id));
 }

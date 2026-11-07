@@ -40,6 +40,7 @@ POSIX_SOURCES := \
 	src/posix/abi.zig \
 	src/posix/fd_table.zig \
 	src/posix/load_plan.zig \
+	src/posix/process_manager.zig \
 	src/posix/service.zig \
 	src/posix/server.zig \
 	src/posix/tests.zig
@@ -66,7 +67,7 @@ toolchain-check:
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 3 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 4 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -93,7 +94,7 @@ $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(P
 	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
-		-fno-entry \
+		-fentry=_start --force_undefined _start \
 		-fno-PIE \
 		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
@@ -105,7 +106,7 @@ $(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_a
 	"$(ZIG)" build-exe src/memory_manager/main.zig "$(SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
-		-fno-entry \
+		-fentry=_start --force_undefined _start \
 		-fno-PIE \
 		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
@@ -117,7 +118,7 @@ $(POSIX_ELF): src/posix/server.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Mak
 	"$(ZIG)" build-exe src/posix/server.zig "$(POSIX_SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
-		-fno-entry \
+		-fentry=_start --force_undefined _start \
 		-fno-PIE \
 		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
@@ -153,8 +154,8 @@ smoke-test: check test build
 		grep -Fq "Zweig Phase 2: memory RPC PASS" "$(BUILD_DIR)/qemu.log" || { \
 			echo "error: memory RPC smoke-test banner was not found" >&2; exit 1; \
 		}; \
-		grep -Fq "Zweig Phase 3: POSIX syscall PASS" "$(BUILD_DIR)/qemu.log" || { \
-			echo "error: POSIX syscall smoke-test banner was not found" >&2; exit 1; \
+		grep -Fq "Zweig Phase 4: process-aware POSIX syscall PASS" "$(BUILD_DIR)/qemu.log" || { \
+			echo "error: Phase 4 process-aware POSIX smoke-test banner was not found" >&2; exit 1; \
 		}
 
 clean:
