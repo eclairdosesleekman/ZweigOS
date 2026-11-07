@@ -4,20 +4,25 @@ Zweig OS is an experimental general-purpose operating system built on the seL4 m
 
 The long-term goals are a capability-oriented system, predictable resource isolation using seL4 MCS, and a practical POSIX environment for desktop and server workloads. The project is being developed incrementally; it is not yet a POSIX-compatible or daily-driver operating system.
 
-## Phase 1: bootable foundation
+## Milestones
 
-Phase 1 establishes the smallest native execution path:
+### Phase 1: bootable foundation
 
 - seL4 on the `x86_64_generic` Microkit platform.
 - A statically composed Microkit Protection Domain.
-- A freestanding Zig program exporting the Microkit C ABI entry points.
-- A reproducible QEMU boot and serial debug-console smoke test.
+- A freestanding Zig component exporting the Microkit C ABI entry points.
+- QEMU boot and debug-console smoke test.
 
-The initial Protection Domain is assigned a 1 ms budget per 10 ms period. This demonstrates the MCS configuration surface; it is not a claim of a verified real-time system.
+### Phase 2: core service foundations
+
+- Two statically composed Protection Domains connected by a Microkit protected-procedure-call channel.
+- A passive Zig memory service backed by a 1 MiB, 4 KiB-page arena.
+- A generation-checked contiguous page allocator and allocation/release RPC.
+- Zig foundations for typed service handles, process metadata, MCS profile validation, and ELF64 validation.
+
+Phase 2 does not yet create dynamic seL4 processes or retype Untyped memory into Frame capabilities. See [docs/phase-2.md](docs/phase-2.md) for the exact boundaries.
 
 ## Toolchain
-
-The initial toolchain is pinned to:
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)
 - [Zig 0.17.1](https://ziglang.org/download/)
@@ -27,20 +32,17 @@ The Microkit SDK must include `board/x86_64_generic/debug`.
 
 ## Build and run
 
-Set `MICROKIT_SDK` to the extracted Microkit SDK directory, then run:
-
 ```sh
 export MICROKIT_SDK=/path/to/microkit-sdk-2.4.0
 make check
+make test
 make build
 make run
 ```
 
-The QEMU command boots the SDK's `sel4_32.elf` kernel image with the Microkit-generated `build/loader.img`. The 32-bit kernel ELF is intentional: Microkit's x86-64 QEMU boot flow uses this image while the Protection Domain itself is 64-bit.
+The QEMU command boots the SDK's `sel4_32.elf` kernel image with the Microkit-generated `build/loader.img`. The 32-bit kernel ELF is intentional for Microkit's x86-64 QEMU boot flow; the Protection Domains are 64-bit.
 
-A successful boot prints `Hello from Zweig OS!` to the Microkit debug console. The debug configuration is used because this first milestone uses `microkit_dbg_puts` as a bring-up console; it is not yet a general-purpose UART driver.
-
-Run the automated boot check with:
+Run the bounded boot and IPC assertion with:
 
 ```sh
 make smoke-test
@@ -48,15 +50,11 @@ make smoke-test
 
 ## Repository layout
 
-- `src/` — Zig Protection Domain code.
+- `src/` — Zig components, C ABI adapters, and core modules.
+- `src/memory_manager/` — passive memory service.
+- `src/core/` — protocol, allocator, handles, process/scheduling metadata, ELF validation, and tests.
 - `system/` — Microkit system description.
 - `docs/` — milestone-specific design and build notes.
-- `.github/workflows/` — pinned-toolchain build and QEMU smoke test.
+- `.github/workflows/` — toolchain build and QEMU smoke tests.
 
-See [docs/phase-1.md](docs/phase-1.md) for implementation details and current limitations.
-
-## Scope and status
-
-This repository currently contains the Phase 1 bring-up only. It does not yet implement dynamic processes, virtual memory management, a POSIX syscall layer, libc, filesystems, networking, or a desktop environment. Those belong to later milestones and will be introduced as separate, testable components.
-
-The seL4 kernel is consumed as an upstream dependency through the Microkit SDK; Zweig OS does not fork or modify the kernel in this phase.
+The seL4 kernel is consumed as an upstream dependency through the Microkit SDK; Zweig OS does not fork or modify the kernel.
