@@ -26,6 +26,7 @@ CLIENT_SHIM_OBJ := $(BUILD_DIR)/microkit_client_shim.o
 SERVER_SHIM_OBJ := $(BUILD_DIR)/microkit_server_shim.o
 POSIX_CLIENT_OBJ := $(BUILD_DIR)/posix_client.o
 POSIX_SERVER_SHIM_OBJ := $(BUILD_DIR)/posix_server_shim.o
+CRT0_OBJ := $(BUILD_DIR)/microkit_crt0.o
 
 CORE_SOURCES := \
 	src/core/protocol.zig \
@@ -92,8 +93,11 @@ $(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/un
 $(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)/.dir
 	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
-$(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
-	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
+$(CRT0_OBJ): src/microkit_crt0.s | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-freestanding -c "$<" -o "$@"
+
+$(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CRT0_OBJ) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
+	"$(ZIG)" build-exe src/init.zig "$(CRT0_OBJ)" "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \
@@ -104,8 +108,8 @@ $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(P
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(MEMORY_ELF): src/memory_manager_root.zig src/memory_manager/main.zig $(CORE_SOURCES) $(SERVER_SHIM_OBJ) Makefile
-	"$(ZIG)" build-exe src/memory_manager_root.zig "$(SERVER_SHIM_OBJ)" \
+$(MEMORY_ELF): src/memory_manager_root.zig src/memory_manager/main.zig $(CORE_SOURCES) $(CRT0_OBJ) $(SERVER_SHIM_OBJ) Makefile
+	"$(ZIG)" build-exe src/memory_manager_root.zig "$(CRT0_OBJ)" "$(SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \
@@ -116,8 +120,8 @@ $(MEMORY_ELF): src/memory_manager_root.zig src/memory_manager/main.zig $(CORE_SO
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(POSIX_ELF): src/posix_server_root.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Makefile
-	"$(ZIG)" build-exe src/posix_server_root.zig "$(POSIX_SERVER_SHIM_OBJ)" \
+$(POSIX_ELF): src/posix_server_root.zig $(POSIX_SOURCES) $(CRT0_OBJ) $(POSIX_SERVER_SHIM_OBJ) Makefile
+	"$(ZIG)" build-exe src/posix_server_root.zig "$(CRT0_OBJ)" "$(POSIX_SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \
