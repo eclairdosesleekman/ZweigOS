@@ -54,7 +54,7 @@ pub const Table = struct {
     }
 
     fn toIndex(fd: i64) ?usize {
-        if (fd < 0 or fd >= max_fds) return null;
+        if (fd < 0 or fd >= @as(i64, @intCast(max_fds))) return null;
         return @intCast(fd);
     }
 };
