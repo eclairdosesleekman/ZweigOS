@@ -1,10 +1,6 @@
-name: Phase 2 core services
+name: Manual Phase 2 memory-service smoke test
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +8,7 @@ permissions:
 
 jobs:
   phase2:
-    name: Zig core tests + Microkit x86_64 + QEMU RPC
+    name: Phase 2 memory-service regression check
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
