@@ -169,7 +169,7 @@ fn buildInitialStack(
     // argc word at the initial stack pointer is therefore 16-byte aligned.
     const padding = (cursor - metadata_size) % 16;
     cursor -= padding;
-    @memset(stack[cursor..cursor + padding], 0);
+    @memset(stack[cursor .. cursor + padding], 0);
 
     var auxiliary_index = auxiliary.len;
     while (auxiliary_index > 0) {
@@ -399,7 +399,6 @@ fn findMapping(loaded: *const LoadedImage, virtual_address: u64) ?Mapping {
 }
 
 test "ELF loader copies PT_LOAD bytes, clears BSS, and builds an aligned argv/envp stack" {
-    const std = @import("std");
     const image = testImage(2, 5, 0x20_2100);
     var arena: [64 * page_size]u8 align(page_size) = undefined;
     @memset(arena[0..], 0xaa);
@@ -407,7 +406,7 @@ test "ELF loader copies PT_LOAD bytes, clears BSS, and builds an aligned argv/en
     const loaded = try load(&image, arena[0..], .{
         .stack_size = 2 * page_size,
         .arguments = .{
-            .argv = &.{"init", "--safe"},
+            .argv = &.{ "init", "--safe" },
             .envp = &.{"HOME=/"},
         },
     });
@@ -469,7 +468,6 @@ test "ELF loader copies PT_LOAD bytes, clears BSS, and builds an aligned argv/en
 }
 
 test "ELF loader rejects ET_DYN until relocation support exists" {
-    const std = @import("std");
     const image = testImage(3, 5, 0x20_2100);
     var arena: [64 * page_size]u8 align(page_size) = undefined;
     try std.testing.expectError(error.UnsupportedImageType, load(&image, arena[0..], .{
@@ -478,7 +476,6 @@ test "ELF loader rejects ET_DYN until relocation support exists" {
 }
 
 test "ELF loader rejects writable executable pages and overlapping page mappings" {
-    const std = @import("std");
     var arena: [64 * page_size]u8 align(page_size) = undefined;
 
     const writable_executable = testImage(2, 7, 0x20_2100);
@@ -497,7 +494,6 @@ test "ELF loader rejects writable executable pages and overlapping page mappings
 }
 
 test "ELF loader enforces stack layout, argument bounds, and arena capacity" {
-    const std = @import("std");
     const image = testImage(2, 5, 0x20_2100);
     var arena: [64 * page_size]u8 align(page_size) = undefined;
 
