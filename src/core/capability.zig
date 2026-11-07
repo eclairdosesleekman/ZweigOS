@@ -16,7 +16,8 @@ pub const Rights = packed struct(u8) {
     reserved: u5 = 0,
 
     pub fn allows(self: Rights, requested: Rights) bool {
-        return (!requested.call or self.call) and
+        return self.reserved == 0 and requested.reserved == 0 and
+            (!requested.call or self.call) and
             (!requested.notify or self.notify) and
             (!requested.receive or self.receive);
     }
