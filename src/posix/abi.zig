@@ -26,7 +26,7 @@ pub const Errno = enum(u16) {
 };
 
 pub fn failure(errno: Errno) i64 {
-    return -@as(i64, @intCast(@intFromEnum(errno)));
+    return -@as(i64, @intCast(@backingInt(errno)));
 }
 
 pub fn isFailure(result: i64) bool {
@@ -35,10 +35,10 @@ pub fn isFailure(result: i64) bool {
 
 test "Zweig syscall numbers and errno encoding are stable" {
     const std = @import("std");
-    try std.testing.expectEqual(@as(u64, 1), @intFromEnum(Syscall.read));
-    try std.testing.expectEqual(@as(u64, 2), @intFromEnum(Syscall.write));
-    try std.testing.expectEqual(@as(u64, 3), @intFromEnum(Syscall.close));
-    try std.testing.expectEqual(@as(u64, 4), @intFromEnum(Syscall.getpid));
+    try std.testing.expectEqual(@as(u64, 1), @backingInt(Syscall.read));
+    try std.testing.expectEqual(@as(u64, 2), @backingInt(Syscall.write));
+    try std.testing.expectEqual(@as(u64, 3), @backingInt(Syscall.close));
+    try std.testing.expectEqual(@as(u64, 4), @backingInt(Syscall.getpid));
     try std.testing.expectEqual(@as(i64, -9), failure(.bad_fd));
     try std.testing.expect(isFailure(failure(.try_again)));
     try std.testing.expect(!isFailure(128));
