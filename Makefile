@@ -18,11 +18,14 @@ SEL4_KERNEL := $(BOARD_DIR)/elf/sel4_32.elf
 
 APP_ELF := $(BUILD_DIR)/zweig_init.elf
 MEMORY_ELF := $(BUILD_DIR)/zweig_memory.elf
+POSIX_ELF := $(BUILD_DIR)/zweig_posix.elf
 SYSTEM_IMAGE := $(BUILD_DIR)/loader.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 
 CLIENT_SHIM_OBJ := $(BUILD_DIR)/microkit_client_shim.o
 SERVER_SHIM_OBJ := $(BUILD_DIR)/microkit_server_shim.o
+POSIX_CLIENT_OBJ := $(BUILD_DIR)/posix_client.o
+POSIX_SERVER_SHIM_OBJ := $(BUILD_DIR)/posix_server_shim.o
 
 CORE_SOURCES := \
 	src/core/protocol.zig \
@@ -33,7 +36,15 @@ CORE_SOURCES := \
 	src/core/elf64.zig \
 	src/core/tests.zig
 
-ZIG_SOURCES := src/init.zig src/memory_manager/main.zig $(CORE_SOURCES)
+POSIX_SOURCES := \
+	src/posix/abi.zig \
+	src/posix/fd_table.zig \
+	src/posix/load_plan.zig \
+	src/posix/service.zig \
+	src/posix/server.zig \
+	src/posix/tests.zig
+
+ZIG_SOURCES := src/init.zig src/memory_manager/main.zig $(CORE_SOURCES) $(POSIX_SOURCES)
 
 QEMU_ARGS = -cpu qemu64,+fsgsbase,+pdpe1gb,+xsaveopt,+xsave \
 	-m 1G \
@@ -51,11 +62,11 @@ all: build
 
 toolchain-check:
 	@command -v "$(ZIG)" >/dev/null 2>&1 || { echo "error: Zig is required (expected $(ZIG_VERSION))" >&2; exit 1; }
-	@test "$($(ZIG) version)" = "$(ZIG_VERSION)" || { echo "error: expected Zig $(ZIG_VERSION), found $($(ZIG) version)" >&2; exit 1; }
+	@test "$$($(ZIG) version)" = "$(ZIG_VERSION)" || { echo "error: expected Zig $(ZIG_VERSION), found $$($(ZIG) version)" >&2; exit 1; }
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 2 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 3 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -71,8 +82,14 @@ $(CLIENT_SHIM_OBJ): src/microkit_client_shim.c | $(BUILD_DIR)
 $(SERVER_SHIM_OBJ): src/microkit_server_shim.c | $(BUILD_DIR)
 	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
-$(APP_ELF): src/init.zig $(CORE_SOURCES) $(CLIENT_SHIM_OBJ) Makefile
-	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" \
+$(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/unistd.h | $(BUILD_DIR)
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+
+$(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+
+$(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
+	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
 		-target x86_64-linux-gnu \
 		-O Debug \
 		-fno-entry \
@@ -95,7 +112,19 @@ $(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_a
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) | $(BUILD_DIR)
+$(POSIX_ELF): src/posix/server.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Makefile
+	"$(ZIG)" build-exe src/posix/server.zig "$(POSIX_SERVER_SHIM_OBJ)" \
+		-target x86_64-linux-gnu \
+		-O Debug \
+		-fno-entry \
+		-fno-PIE \
+		-fno-stack-protector \
+		-L"$(BOARD_DIR)/lib" \
+		-lmicrokit \
+		-T"$(MICROKIT_LINKER_SCRIPT)" \
+		-femit-bin="$@"
+
+$(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) $(POSIX_ELF) | $(BUILD_DIR)
 	"$(MICROKIT_TOOL)" system/zweig.system \
 		--search-path "$(BUILD_DIR)" \
 		--board "$(MICROKIT_BOARD)" \
@@ -105,6 +134,7 @@ $(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) | $(BUILD_DIR)
 
 test: toolchain-check
 	"$(ZIG)" test src/core/tests.zig -O Debug
+	"$(ZIG)" test src/posix/tests.zig -O Debug
 
 build: check $(SYSTEM_IMAGE)
 
@@ -122,6 +152,9 @@ smoke-test: check test build
 		fi; \
 		grep -Fq "Zweig Phase 2: memory RPC PASS" "$(BUILD_DIR)/qemu.log" || { \
 			echo "error: memory RPC smoke-test banner was not found" >&2; exit 1; \
+		}; \
+		grep -Fq "Zweig Phase 3: POSIX syscall PASS" "$(BUILD_DIR)/qemu.log" || { \
+			echo "error: POSIX syscall smoke-test banner was not found" >&2; exit 1; \
 		}
 
 clean:
