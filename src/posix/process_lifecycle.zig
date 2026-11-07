@@ -91,7 +91,8 @@ pub const Manager = struct {
         if (processes.pid(child.id) == null or processes.pid(child.id).? != child.pid) {
             return error.StaleProcess;
         }
-        if (processes.state(child.id) != .starting) return error.ProcessNotStarting;
+        const process_state = processes.state(child.id) orelse return error.StaleProcess;
+        if (process_state != .starting) return error.ProcessNotStarting;
         if (!sameId(plan.owner, child.id)) return error.WrongPlanOwner;
         if (plan.request_count == 0 or plan.request_count > max_resources) {
             return error.InvalidPlan;
@@ -130,7 +131,8 @@ pub const Manager = struct {
     ) CommitError!void {
         const record = self.find(id) orelse return error.UnknownProcess;
         if (record.phase != .prepared) return error.InvalidLifecycleState;
-        if (processes.state(id) != .starting) return error.InvalidLifecycleState;
+        const process_state = processes.state(id) orelse return error.UnknownProcess;
+        if (process_state != .starting) return error.InvalidLifecycleState;
         try processes.markRunning(id);
         record.phase = .running;
     }
@@ -162,7 +164,8 @@ pub const Manager = struct {
     ) ExitError!void {
         const record = self.find(id) orelse return error.UnknownProcess;
         if (record.phase != .running) return error.InvalidLifecycleState;
-        if (processes.state(id) != .running) return error.InvalidLifecycleState;
+        const process_state = processes.state(id) orelse return error.UnknownProcess;
+        if (process_state != .running) return error.InvalidLifecycleState;
 
         try processes.exit(id, exit_code);
         record.phase = .exited;
