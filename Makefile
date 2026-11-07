@@ -94,7 +94,7 @@ $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(P
 	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
-		-fno-entry \
+		-fentry=_start -Wl,-u,_start \
 		-fno-PIE \
 		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
@@ -106,7 +106,7 @@ $(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_a
 	"$(ZIG)" build-exe src/memory_manager/main.zig "$(SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
-		-fno-entry \
+		-fentry=_start -Wl,-u,_start \
 		-fno-PIE \
 		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
@@ -118,7 +118,7 @@ $(POSIX_ELF): src/posix/server.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Mak
 	"$(ZIG)" build-exe src/posix/server.zig "$(POSIX_SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
-		-fno-entry \
+		-fentry=_start -Wl,-u,_start \
 		-fno-PIE \
 		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
