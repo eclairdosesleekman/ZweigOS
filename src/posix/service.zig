@@ -56,16 +56,16 @@ export fn zweig_posix_dispatch(
     ensureDescriptors();
 
     return switch (syscall_number) {
-        @intFromEnum(abi.Syscall.getpid) => bootstrap_pid,
-        @intFromEnum(abi.Syscall.write) => blk: {
+        @backingInt(abi.Syscall.getpid) => bootstrap_pid,
+        @backingInt(abi.Syscall.write) => blk: {
             if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             break :blk writeConsole(@intCast(argument0), argument1);
         },
-        @intFromEnum(abi.Syscall.read) => blk: {
+        @backingInt(abi.Syscall.read) => blk: {
             if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             break :blk readConsole(@intCast(argument0));
         },
-        @intFromEnum(abi.Syscall.close) => blk: {
+        @backingInt(abi.Syscall.close) => blk: {
             if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             if (descriptors.close(@intCast(argument0))) break :blk 0;
             break :blk abi.failure(.bad_fd);
