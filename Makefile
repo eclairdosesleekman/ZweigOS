@@ -133,8 +133,7 @@ $(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) $(POSIX_ELF) | $(B
 		-r "$(REPORT_FILE)"
 
 test: toolchain-check
-	"$(ZIG)" test src/core/tests.zig -O Debug
-	"$(ZIG)" test src/posix/tests.zig -O Debug
+	"$(ZIG)" test src/tests.zig -O Debug
 
 build: check $(SYSTEM_IMAGE)
 
