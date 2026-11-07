@@ -32,7 +32,7 @@ pub const ServiceCapability = struct {
 const max_entries = 8;
 
 pub const Table = struct {
-    entries: [max_entries]?ServiceCapability = [_]?ServiceCapability{null} ** max_entries,
+    entries: [max_entries]?ServiceCapability = @splat(null),
 
     pub fn install(self: *Table, capability: ServiceCapability) error{AlreadyInstalled, TableFull}!void {
         for (self.entries) |entry| {
