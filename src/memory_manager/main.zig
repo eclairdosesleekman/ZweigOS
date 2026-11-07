@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Passive memory service running in its own Microkit Protection Domain.
 
+// Microkit's libmicrokit supplies the actual _start symbol. This declaration
+// tells Zig not to synthesize the hosted std.start entry point.
+pub const _start = {};
+
 const PageAllocator = @import("../core/page_allocator.zig").PageAllocator;
 const protocol = @import("../core/protocol.zig");
 
