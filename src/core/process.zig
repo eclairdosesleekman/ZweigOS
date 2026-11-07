@@ -39,7 +39,7 @@ const Entry = struct {
 };
 
 pub const Table = struct {
-    entries: [max_processes]Entry = [_]Entry{.{}} ** max_processes,
+    entries: [max_processes]Entry = @splat(.{}),
 
     pub fn register(self: *Table, domain_id: u16) error{AlreadyRegistered, TableFull}!Id {
         for (self.entries) |entry| {
