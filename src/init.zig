@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Zweig OS Phase 3 bootstrap: exercise the memory and POSIX service ABIs.
 
+// Microkit's libmicrokit supplies the actual _start symbol. This declaration
+// tells Zig not to synthesize the hosted std.start entry point.
+pub const _start = {};
+
 const capability = @import("core/capability.zig");
 const protocol = @import("core/protocol.zig");
 const scheduling = @import("core/scheduling.zig");
