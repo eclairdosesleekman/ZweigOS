@@ -37,16 +37,10 @@ pub fn build(
     code: Mapping,
     stack: Mapping,
 ) Error!InitialContext {
-    try validateMapping(code);
+    try validateExecutableEntry(entry, code);
     try validateMapping(stack);
-    if (code.writable and code.executable) return error.WritableExecutableMapping;
     if (stack.writable and stack.executable) return error.WritableExecutableMapping;
 
-    if (!code.readable or !code.executable or entry < code.virtual_address or
-        entry >= endOf(code))
-    {
-        return error.EntryNotExecutable;
-    }
     if (!stack.readable or !stack.writable or stack.executable) {
         return error.StackNotWritable;
     }
@@ -65,6 +59,21 @@ pub fn build(
         .rsp = stack_pointer,
         .rflags = initial_rflags,
     };
+}
+
+/// Validate an executable entry against the mapping visible to the worker.
+/// The supervisor passes the worker's RX view, not its own writable alias.
+pub fn validateExecutableEntry(entry: u64, code: Mapping) Error!void {
+    try validateMapping(code);
+    if (code.writable and code.executable) return error.WritableExecutableMapping;
+    if (!code.readable or !code.executable or entry < code.virtual_address or
+        entry >= endOf(code))
+    {
+        return error.EntryNotExecutable;
+    }
+    if (entry < user_min_address or entry >= user_address_end) {
+        return error.InvalidInstructionPointer;
+    }
 }
 
 fn validateMapping(mapping: Mapping) Error!void {
