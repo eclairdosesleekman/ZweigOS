@@ -8,6 +8,11 @@
 
 #include <stdint.h>
 
+void zweig_console_puts(const char *message)
+{
+    microkit_dbg_puts(message);
+}
+
 extern uint32_t zweig_memory_dispatch(uint32_t channel,
                                       uint64_t operation,
                                       uint64_t argument,
