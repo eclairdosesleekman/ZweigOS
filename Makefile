@@ -37,6 +37,7 @@ all: build
 check:
 	@command -v "$(ZIG)" >/dev/null 2>&1 || { echo "error: Zig is required (expected $(ZIG_VERSION))" >&2; exit 1; }
 	@test "$$($(ZIG) version)" = "$(ZIG_VERSION)" || { echo "error: expected Zig $(ZIG_VERSION), found $$($(ZIG) version)" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 1 requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -52,6 +53,8 @@ $(APP_ELF): src/init.zig Makefile | $(BUILD_DIR)
 		-target x86_64-linux-gnu \
 		-O Debug \
 		-fno-entry \
+		-fno-PIE \
+		-fno-stack-protector \
 		-L"$(BOARD_DIR)/lib" \
 		-lmicrokit \
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
