@@ -144,7 +144,8 @@ pub const Table = struct {
     ) error{ StaleProcessId, ParentNotRunning, ChildNotFound, WouldBlock, HasChildren }!ExitInfo {
         if (self.find(parent_id) == null) return error.StaleProcessId;
         const parent_state = self.registry.state(parent_id) catch return error.StaleProcessId;
-        if (parent_state != .running) return error.ParentNotRunning;
+        // A terminated parent may still reap its own terminated children.
+        if (parent_state == .starting) return error.ParentNotRunning;
 
         const child = self.findChild(parent_id, child_pid) orelse return error.ChildNotFound;
         const child_id = child.id orelse return error.StaleProcessId;
