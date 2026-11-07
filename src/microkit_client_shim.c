@@ -22,6 +22,7 @@ int32_t zweig_memory_call(uint32_t channel,
     if (value_out == 0) {
         return -1;
     }
+    *value_out = 0;
 
     microkit_mr_set(0, (seL4_Word)argument);
     microkit_msginfo reply =
