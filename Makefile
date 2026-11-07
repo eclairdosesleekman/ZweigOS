@@ -73,20 +73,21 @@ check: toolchain-check
 	@test -f "$(MICROKIT_LINKER_SCRIPT)" || { echo "error: Microkit linker script not found: $(MICROKIT_LINKER_SCRIPT)" >&2; exit 1; }
 	@test -f "$(SEL4_KERNEL)" || { echo "error: x86-64 QEMU kernel image not found: $(SEL4_KERNEL)" >&2; exit 1; }
 
-$(BUILD_DIR):
-	mkdir -p "$@"
+$(BUILD_DIR)/.dir:
+	mkdir -p "$(BUILD_DIR)"
+	touch "$@"
 
-$(CLIENT_SHIM_OBJ): src/microkit_client_shim.c | $(BUILD_DIR)
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+$(CLIENT_SHIM_OBJ): src/microkit_client_shim.c | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
-$(SERVER_SHIM_OBJ): src/microkit_server_shim.c | $(BUILD_DIR)
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+$(SERVER_SHIM_OBJ): src/microkit_server_shim.c | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
-$(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/unistd.h | $(BUILD_DIR)
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+$(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/unistd.h | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
-$(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -fno-pic -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+$(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
 	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
@@ -124,7 +125,7 @@ $(POSIX_ELF): src/posix/server.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Mak
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) $(POSIX_ELF) | $(BUILD_DIR)
+$(SYSTEM_IMAGE): system/zweig.system $(APP_ELF) $(MEMORY_ELF) $(POSIX_ELF) | $(BUILD_DIR)/.dir
 	"$(MICROKIT_TOOL)" system/zweig.system \
 		--search-path "$(BUILD_DIR)" \
 		--board "$(MICROKIT_BOARD)" \
