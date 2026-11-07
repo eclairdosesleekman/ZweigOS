@@ -4,8 +4,40 @@
  * Microkit's protected() ABI stays in C; syscall policy stays in Zig.
  */
 #include <microkit.h>
+#include <sel4/sel4.h>
 
 #include <stdint.h>
+
+/*
+ * The SDF grants this PD a capability to the one statically provisioned
+ * process-slot TCB in CSpace slot 1. We can rewrite its x86-64 user context
+ * but cannot create additional TCBs or change its CSpace/VSpace.
+ */
+int zweig_process_slot_start(uint64_t entry, uint64_t stack_pointer, uint64_t rflags)
+{
+    const seL4_CPtr worker_tcb = microkit_cspace_root_slot_to_cptr(1);
+    if (worker_tcb == seL4_CapNull) {
+        return -1;
+    }
+
+    int error = seL4_TCB_Suspend(worker_tcb);
+    if (error != 0) {
+        return error;
+    }
+
+    seL4_UserContext registers = {0};
+    registers.rip = entry;
+    registers.rsp = stack_pointer;
+    registers.rflags = rflags;
+
+    const seL4_Word register_count = sizeof(registers) / sizeof(seL4_Word);
+    return seL4_TCB_WriteRegisters(
+        worker_tcb,
+        seL4_True,
+        0,
+        register_count,
+        &registers);
+}
 
 extern int64_t zweig_posix_dispatch(uint32_t channel,
                                     uint64_t syscall_number,
