@@ -62,7 +62,7 @@ pub fn create(image: []const u8) Error!Plan {
 
     for (0..header.program_header_count) |index| {
         const offset64 = header.program_header_offset +
-            (@as(u64, @intCast(index)) * header.program_header_entry_size);
+            (@as(u64, @intCast(index)) * @as(u64, header.program_header_entry_size));
         const offset: usize = @intCast(offset64);
         if (read32(image, offset) != 1) continue; // PT_LOAD
 
