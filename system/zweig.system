@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Phase 1: one statically composed Zig Protection Domain.
+  Budget and period are in microseconds (1 ms every 10 ms).
+-->
+<system>
+    <protection_domain
+        name="zweig_init"
+        priority="100"
+        budget="1000"
+        period="10000">
+        <program_image path="zweig_init.elf" />
+    </protection_domain>
+</system>
