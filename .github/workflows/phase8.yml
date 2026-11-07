@@ -1,4 +1,4 @@
-name: Phase 8 static TCB execution
+name: Phase 8 and 9 static slot execution
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   phase8:
-    name: Zig tests + Microkit x86_64 + Phase 8 TCB handoff
+    name: Zig tests + Microkit x86_64 + Phase 8/9 execution
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -48,5 +48,5 @@ jobs:
       - name: Run formatting, unit tests, and Microkit system build
         run: make check test build
 
-      - name: Boot QEMU and verify the existing static bootstrap
+      - name: Boot QEMU and verify static and staged slot execution
         run: make smoke-test
