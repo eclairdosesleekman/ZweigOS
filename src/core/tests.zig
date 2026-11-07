@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-2-Clause
-//! Import all Phase 2 core modules so their unit tests run under `zig test`.
+//! Import all core modules so their unit tests run under the unified root.
 
 test {
     _ = @import("protocol.zig");
@@ -8,4 +8,5 @@ test {
     _ = @import("process.zig");
     _ = @import("scheduling.zig");
     _ = @import("elf64.zig");
+    _ = @import("object_authority.zig");
 }

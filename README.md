@@ -49,6 +49,16 @@ Phase 4 adds process-management policy, not dynamic seL4 process creation. Its `
 
 Phase 5 stages bytes and returns a mapping manifest; it does not create seL4 Frame capabilities, map a new VSpace, perform relocations, or enter an executable. Those require the dynamic object-authority and TCB lifecycle work planned after this milestone. See [docs/phase-5.md](docs/phase-5.md).
 
+### Phase 6: process object authority and resource planning
+
+- Add a bounded, generation-checked authority ledger for frame regions, endpoints, notifications, TCBs, CNodes, VSpaces, Scheduling Contexts, and Untyped regions.
+- Bind every root/delegated capability to a process identity and enforce type-specific rights, rights attenuation, and caller ownership.
+- Support descendant revocation and safe object release only after delegated capabilities have been revoked.
+- Convert Phase 5 ELF/stack mappings into an atomic per-process reservation batch for a VSpace, CNode, TCB, Scheduling Context, and frame regions.
+- Validate executable-entry and writable-stack coverage, page alignment, non-overlap, W^X, scheduling profiles, and frame-page quotas before reservation.
+
+Phase 6 adds a tested authority policy and resource plan, not dynamic seL4 object creation. The ledger does not mint capabilities, allocate CSpace slots, retype Untyped memory, map a VSpace, or start a TCB. See [docs/phase-6.md](docs/phase-6.md).
+
 ## Toolchain
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)
@@ -79,8 +89,8 @@ make smoke-test
 
 - `src/` — Zig components, C ABI adapters, and core modules.
 - `src/memory_manager/` — passive memory service.
-- `src/posix/` — syscall service, ABI, descriptor table, process manager, ELF planning and staging.
-- `src/core/` — shared IPC protocol, allocator, handles, process/scheduling metadata, and ELF validation.
+- `src/posix/` — syscall service, ABI, descriptor table, process manager, ELF planning, staging, and process resource planning.
+- `src/core/` — shared IPC protocol, allocator, handles, process/scheduling metadata, ELF validation, and object authority.
 - `include/zweig/` — C-facing syscall headers.
 - `system/` — Microkit system description.
 - `docs/` — milestone-specific design and build notes.

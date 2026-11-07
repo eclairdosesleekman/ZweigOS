@@ -7,4 +7,5 @@ test {
     _ = @import("load_plan.zig");
     _ = @import("image_loader.zig");
     _ = @import("process_manager.zig");
+    _ = @import("process_resources.zig");
 }
