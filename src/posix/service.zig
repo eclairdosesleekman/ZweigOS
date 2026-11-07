@@ -10,6 +10,7 @@ const abi = @import("abi.zig");
 const fd_table = @import("fd_table.zig");
 const process_manager = @import("process_manager.zig");
 const process_slot = @import("process_slot.zig");
+const process_slot_image = @import("process_slot_image.zig");
 
 extern fn zweig_console_putc(character: c_int) void;
 
@@ -65,6 +66,13 @@ pub export fn zweig_posix_dispatch(
     return switch (syscall_number) {
         @backingInt(abi.Syscall.getpid) => @intCast(bootstrap_process.pid),
         @backingInt(abi.Syscall.run_slot) => process_slot.run(),
+        @backingInt(abi.Syscall.exec_slot) => blk: {
+            if (argument0 > process_slot_image.max_image_size) {
+                break :blk abi.failure(.invalid);
+            }
+            const bytes: [*]const u8 = @ptrFromInt(shared_buffer_address);
+            break :blk process_slot.runImage(bytes[0..@intCast(argument0)]);
+        },
         @backingInt(abi.Syscall.write) => blk: {
             if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             break :blk writeConsole(@intCast(argument0), argument1);
