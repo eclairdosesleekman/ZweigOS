@@ -69,6 +69,16 @@ Phase 6 adds a tested authority policy and resource plan, not dynamic seL4 objec
 
 Phase 7 is a transactional user-space lifecycle coordinator. Committing a launch updates the process policy state only; it does not resume a seL4 TCB or execute the staged ELF. See [docs/phase-7.md](docs/phase-7.md).
 
+### Phase 8: static execution slot and x86-64 TCB handoff
+
+- Statically provision one worker Protection Domain with its own Scheduling Context, shared status page, and dedicated RW stack.
+- Share only the worker's TCB capability with the POSIX supervisor through Microkit SDF CSpace slot 1.
+- Add the `RUN_SLOT` syscall, suspend the worker, write a validated x86-64 user register context with `seL4_TCB_WriteRegisters`, and resume it.
+- Run a built-in worker payload on the separate TCB, record completion in shared memory, and self-suspend for the next invocation.
+- Validate RIP/RSP, mapping permissions, user address bounds, alignment, overflow, and W^X before installing the context.
+
+Phase 8 verifies a real TCB register handoff through one statically provisioned slot. It does not create kernel objects dynamically or execute arbitrary Phase 5 ELF images. See [docs/phase-8.md](docs/phase-8.md).
+
 ## Toolchain
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)
@@ -99,7 +109,7 @@ make smoke-test
 
 - `src/` — Zig components, C ABI adapters, and core modules.
 - `src/memory_manager/` — passive memory service.
-- `src/posix/` — syscall service, ABI, descriptor table, process manager, ELF planning, staging, process resource planning, and lifecycle coordination.
+- `src/posix/` — syscall service, ABI, descriptor table, process manager, ELF planning, staging, process resource planning, lifecycle coordination, and x86-64 TCB handoff.
 - `src/core/` — shared IPC protocol, allocator, handles, process/scheduling metadata, ELF validation, and object authority.
 - `include/zweig/` — C-facing syscall headers.
 - `system/` — Microkit system description.

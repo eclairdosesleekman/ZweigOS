@@ -19,6 +19,7 @@ extern fn zweig_memory_call(
 extern fn zweig_write(fd: c_int, buffer: [*]const u8, length: usize) i64;
 extern fn zweig_read(fd: c_int, buffer: ?[*]u8, length: usize) i64;
 extern fn zweig_getpid() i64;
+extern fn zweig_run_slot() i64;
 
 const memory_channel: u32 = 0;
 
@@ -106,6 +107,24 @@ export fn init() void {
         return;
     }
     log("Zweig Phase 4: process-aware POSIX syscall PASS\r\n");
+
+    const first_run = zweig_run_slot();
+    if (first_run != 1) {
+        log("Zweig Phase 8: first TCB execution failed\r\n");
+        return;
+    }
+    const second_run = zweig_run_slot();
+    if (second_run != 2) {
+        if (second_run == -101) {
+            log("Zweig Phase 8: second TCB completion counter mismatch\r\n");
+        } else if (second_run == -102) {
+            log("Zweig Phase 8: second TCB completion marker mismatch\r\n");
+        } else {
+            log("Zweig Phase 8: second TCB resume failed\r\n");
+        }
+        return;
+    }
+    log("Zweig Phase 8: seL4 TCB execution slot PASS\r\n");
 }
 
 export fn notified(_: u32) void {}
