@@ -59,7 +59,7 @@ jobs:
           for image in build/zweig_init.elf build/zweig_memory.elf build/zweig_posix.elf; do
             echo "=== $image ==="
             readelf -h "$image" | grep -E 'Class:|Machine:|Entry point'
-            nm -n "$image" | grep -E ' (_start|main|init|notified|zweig_memory_dispatch|zweig_posix_dispatch) || true
+            nm -n "$image" | grep -E "_start|main|init|notified|zweig_" || true
           done
 
       - name: Boot QEMU and verify existing POSIX bootstrap
