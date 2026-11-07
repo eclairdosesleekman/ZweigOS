@@ -45,7 +45,7 @@
     <protection_domain
         name="process_slot"
         priority="101"
-        budget="1000"
+        budget="8000"
         period="10000">
         <program_image path="zweig_slot.elf" />
         <map
