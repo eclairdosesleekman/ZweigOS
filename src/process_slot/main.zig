@@ -33,8 +33,6 @@ pub export fn zweig_process_slot_payload() callconv(.c) void {
     state.last_result = 0;
     _ = @atomicRmw(u64, &state.run_count, .Add, 1, .acq_rel);
     @atomicStore(u64, &state.last_result, abi.result_magic, .release);
-    zweig_console_puts("Zweig Phase 8: worker TCB entered and self-suspended\r\n");
-
     _ = zweig_process_slot_park();
     while (true) {
         asm volatile ("pause");
