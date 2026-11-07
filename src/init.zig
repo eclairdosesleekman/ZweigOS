@@ -108,7 +108,7 @@ export fn init() void {
     }
     log("Zweig Phase 4: process-aware POSIX syscall PASS\r\n");
 
-    if (zweig_run_slot() != 1) {
+    if (zweig_run_slot() != 1 or zweig_run_slot() != 2) {
         log("Zweig Phase 8: seL4 TCB execution slot FAILED\r\n");
         return;
     }
