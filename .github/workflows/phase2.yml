@@ -1,0 +1,52 @@
+name: Phase 2 core services
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase2:
+    name: Zig core tests + Microkit x86_64 + QEMU RPC
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qemu-system-x86
+
+      - name: Install Zig 0.17.1
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz \
+            --output "$RUNNER_TEMP/zig.tar.xz"
+          tar -xJf "$RUNNER_TEMP/zig.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/zig-x86_64-linux-0.17.1" >> "$GITHUB_PATH"
+
+      - name: Install seL4 Microkit SDK 2.4.0
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/seL4/microkit/releases/download/2.4.0/microkit-sdk-2.4.0-linux-x86-64.tar.gz \
+            --output "$RUNNER_TEMP/microkit-sdk.tar.gz"
+          mkdir -p "$RUNNER_TEMP/microkit-sdk"
+          tar -xzf "$RUNNER_TEMP/microkit-sdk.tar.gz" -C "$RUNNER_TEMP/microkit-sdk"
+          sdk_tool="$(find "$RUNNER_TEMP/microkit-sdk" -type f -path '*/bin/microkit' -print -quit)"
+          test -n "$sdk_tool"
+          sdk_root="${sdk_tool%/bin/microkit}"
+          echo "MICROKIT_SDK=$sdk_root" >> "$GITHUB_ENV"
+
+      - name: Run Zig unit tests and build the system image
+        run: make check test build
+
+      - name: Boot QEMU and verify memory-service RPC
+        run: make smoke-test
