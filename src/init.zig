@@ -42,7 +42,7 @@ fn exerciseMemoryService() bool {
     var lease_token: u64 = 0;
     const alloc_status = zweig_memory_call(
         memory.channel,
-        @intFromEnum(protocol.Operation.allocate_pages),
+        @backingInt(protocol.Operation.allocate_pages),
         4,
         &lease_token,
     );
@@ -51,7 +51,7 @@ fn exerciseMemoryService() bool {
     var free_pages_after_alloc: u64 = 0;
     const stats_status = zweig_memory_call(
         memory.channel,
-        @intFromEnum(protocol.Operation.get_stats),
+        @backingInt(protocol.Operation.get_stats),
         0,
         &free_pages_after_alloc,
     );
@@ -60,7 +60,7 @@ fn exerciseMemoryService() bool {
     var release_result: u64 = 0;
     const release_status = zweig_memory_call(
         memory.channel,
-        @intFromEnum(protocol.Operation.release_pages),
+        @backingInt(protocol.Operation.release_pages),
         lease_token,
         &release_result,
     );
@@ -69,7 +69,7 @@ fn exerciseMemoryService() bool {
     var free_pages_after_release: u64 = 0;
     const final_stats_status = zweig_memory_call(
         memory.channel,
-        @intFromEnum(protocol.Operation.get_stats),
+        @backingInt(protocol.Operation.get_stats),
         0,
         &free_pages_after_release,
     );
