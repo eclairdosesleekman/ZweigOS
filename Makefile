@@ -50,6 +50,7 @@ POSIX_SOURCES := \
 	src/posix/process_resources.zig \
 	src/posix/x86_64_context.zig \
 	src/posix/process_slot.zig \
+	src/posix/process_slot_image.zig \
 	src/posix/process_lifecycle.zig \
 	src/posix/process_manager.zig \
 	src/posix/service.zig \
@@ -79,7 +80,7 @@ toolchain-check:
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 8 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 9 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -192,6 +193,9 @@ smoke-test: check test build
 		}; \
 		grep -Fq "Zweig Phase 8: seL4 TCB execution slot PASS" "$(BUILD_DIR)/qemu.log" || { \
 			echo "error: Phase 8 seL4 TCB execution slot banner was not found" >&2; exit 1; \
+		}; \
+		grep -Fq "Zweig Phase 9: W^X staged image execution PASS" "$(BUILD_DIR)/qemu.log" || { \
+			echo "error: Phase 9 W^X staged image execution banner was not found" >&2; exit 1; \
 		}
 
 clean:
