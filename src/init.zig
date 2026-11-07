@@ -108,8 +108,20 @@ export fn init() void {
     }
     log("Zweig Phase 4: process-aware POSIX syscall PASS\r\n");
 
-    if (zweig_run_slot() != 1 or zweig_run_slot() != 2) {
-        log("Zweig Phase 8: seL4 TCB execution slot FAILED\r\n");
+    const first_run = zweig_run_slot();
+    if (first_run != 1) {
+        log("Zweig Phase 8: first TCB execution failed\r\n");
+        return;
+    }
+    const second_run = zweig_run_slot();
+    if (second_run != 2) {
+        if (second_run == -101) {
+            log("Zweig Phase 8: second TCB completion counter mismatch\r\n");
+        } else if (second_run == -102) {
+            log("Zweig Phase 8: second TCB completion marker mismatch\r\n");
+        } else {
+            log("Zweig Phase 8: second TCB resume failed\r\n");
+        }
         return;
     }
     log("Zweig Phase 8: seL4 TCB execution slot PASS\r\n");
