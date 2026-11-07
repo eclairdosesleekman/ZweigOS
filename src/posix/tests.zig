@@ -5,5 +5,6 @@ test {
     _ = @import("abi.zig");
     _ = @import("fd_table.zig");
     _ = @import("load_plan.zig");
+    _ = @import("image_loader.zig");
     _ = @import("process_manager.zig");
 }

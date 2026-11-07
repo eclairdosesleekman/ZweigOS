@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Converts a validated ELF64 image into a bounded load plan.
 //!
-//! The plan is data only. Phase 3 does not yet allocate Frame capabilities,
-//! populate arbitrary VSpaces, apply relocations, or start the ELF entry point.
+//! The plan is data only. Phase 5 materializes bytes into a supplied staging
+//! arena, but Frame capability creation, VSpace mapping, relocations, and
+//! starting a new TCB remain responsibilities of a future authority service.
 
 const std = @import("std");
 const elf64 = @import("../core/elf64.zig");
@@ -29,6 +30,7 @@ pub const Segment = struct {
 };
 
 pub const Plan = struct {
+    file_type: u16,
     entry: u64,
     segments: [max_load_segments]Segment,
     segment_count: usize,
@@ -52,6 +54,7 @@ fn read64(bytes: []const u8, offset: usize) u64 {
 pub fn create(image: []const u8) Error!Plan {
     const header = try elf64.validate(image);
     var plan = Plan{
+        .file_type = header.file_type,
         .entry = header.entry,
         .segments = undefined,
         .segment_count = 0,
@@ -140,6 +143,7 @@ test "ELF64 load planner records segment permissions and guarded stack layout" {
     write64(&image, 112, 8);
 
     const plan = try create(&image);
+    try std.testing.expectEqual(@as(u16, 2), plan.file_type);
     try std.testing.expectEqual(@as(usize, 1), plan.segment_count);
     try std.testing.expect(plan.segments[0].readable);
     try std.testing.expect(plan.segments[0].executable);

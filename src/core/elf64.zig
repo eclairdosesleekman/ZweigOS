@@ -1,34 +1,19 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Defensive ELF64 little-endian x86-64 image validation.
 //!
-//! This validates an image before a future loader maps PT_LOAD segments.
-//! It deliberately does not allocate Frames, build page tables, or jump to
-//! an entry point.
+//! The validator checks file metadata and PT_LOAD ranges. The Phase 5 image
+//! staging layer consumes the validated metadata, but still does not create
+//! seL4 Frame capabilities or page tables.
 
 const std = @import("std");
 
 pub const Header = struct {
+    file_type: u16,
     entry: u64,
     program_header_offset: u64,
     program_header_entry_size: u16,
     program_header_count: u16,
     loadable_segment_count: u16,
-};
-
-pub const Error = error{
-    TruncatedHeader,
-    BadMagic,
-    UnsupportedClass,
-    UnsupportedEndian,
-    UnsupportedType,
-    UnsupportedMachine,
-    UnsupportedVersion,
-    InvalidHeaderSize,
-    InvalidProgramHeaderSize,
-    TruncatedProgramHeaders,
-    NoLoadableSegments,
-    EntryNotExecutable,
-    InvalidLoadSegment,
 };
 
 fn read16(bytes: []const u8, offset: usize) u16 {
@@ -47,6 +32,22 @@ fn read64(bytes: []const u8, offset: usize) u64 {
     return @as(u64, read32(bytes, offset)) |
         (@as(u64, read32(bytes, offset + 4)) << 32);
 }
+
+pub const Error = error{
+    TruncatedHeader,
+    BadMagic,
+    UnsupportedClass,
+    UnsupportedEndian,
+    UnsupportedType,
+    UnsupportedMachine,
+    UnsupportedVersion,
+    InvalidHeaderSize,
+    InvalidProgramHeaderSize,
+    TruncatedProgramHeaders,
+    NoLoadableSegments,
+    EntryNotExecutable,
+    InvalidLoadSegment,
+};
 
 pub fn validate(image: []const u8) Error!Header {
     if (image.len < 64) return error.TruncatedHeader;
@@ -116,6 +117,7 @@ pub fn validate(image: []const u8) Error!Header {
     if (!entry_is_executable) return error.EntryNotExecutable;
 
     return .{
+        .file_type = file_type,
         .entry = entry,
         .program_header_offset = phoff,
         .program_header_entry_size = phentsize,
@@ -170,6 +172,7 @@ test "ELF64 validator accepts an x86-64 loadable image" {
     write64(&image, 112, 8);
 
     const header = try validate(&image);
+    try std.testing.expectEqual(@as(u16, 2), header.file_type);
     try std.testing.expectEqual(@as(u64, 0x20_0000), header.entry);
     try std.testing.expectEqual(@as(u16, 1), header.loadable_segment_count);
 }

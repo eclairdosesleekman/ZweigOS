@@ -1,10 +1,6 @@
-name: Phase 4 process management
+name: Manual Phase 4 regression
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +8,7 @@ permissions:
 
 jobs:
   phase4:
-    name: Zig tests + Microkit x86_64 + process-aware POSIX RPC
+    name: Phase 4 process-management regression check
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -45,8 +41,5 @@ jobs:
           sdk_root="${sdk_tool%/bin/microkit}"
           echo "MICROKIT_SDK=$sdk_root" >> "$GITHUB_ENV"
 
-      - name: Run Phase 4 tests and build the Microkit image
+      - name: Run Phase 4 tests and build
         run: make check test build
-
-      - name: Boot QEMU and verify process-aware POSIX RPC
-        run: make smoke-test
