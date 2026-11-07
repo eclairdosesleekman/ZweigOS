@@ -185,6 +185,8 @@ pub const Manager = struct {
         child_pid: u32,
     ) ReapError!process_manager.ExitInfo {
         const child = processes.childOf(parent_id, child_pid) orelse return error.ChildNotFound;
+        const parent_state = processes.state(parent_id) orelse return error.StaleProcessId;
+        if (parent_state == .starting) return error.ParentNotRunning;
         const record = self.find(child.id) orelse return error.ProcessNotManaged;
         const state = processes.state(child.id) orelse return error.StaleProcessId;
         if (state == .starting or state == .running) return error.ProcessNotExited;
