@@ -11,9 +11,9 @@ pub const result_magic: u64 = 0x5048_4153_4538_4f4b;
 pub const max_runs: u64 = 1024;
 
 pub const SharedState = extern struct {
-    magic: u64 = 0,
-    entry: u64 = 0,
-    entry_page: u64 = 0,
-    run_count: u64 = 0,
-    last_result: u64 = 0,
+    magic: u64,
+    entry: u64,
+    entry_page: u64,
+    run_count: u64,
+    last_result: u64,
 };
