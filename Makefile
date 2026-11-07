@@ -44,6 +44,7 @@ POSIX_SOURCES := \
 	src/posix/load_plan.zig \
 	src/posix/image_loader.zig \
 	src/posix/process_resources.zig \
+	src/posix/process_lifecycle.zig \
 	src/posix/process_manager.zig \
 	src/posix/service.zig \
 	src/posix/server.zig \
@@ -72,7 +73,7 @@ toolchain-check:
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 6 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 7 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
