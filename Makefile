@@ -44,7 +44,7 @@ POSIX_SOURCES := \
 	src/posix/server.zig \
 	src/posix/tests.zig
 
-ZIG_SOURCES := src/init.zig src/memory_manager/main.zig $(CORE_SOURCES) $(POSIX_SOURCES)
+ZIG_SOURCES := src/init.zig src/memory_manager/main.zig src/tests.zig $(CORE_SOURCES) $(POSIX_SOURCES)
 
 QEMU_ARGS = -cpu qemu64,+fsgsbase,+pdpe1gb,+xsaveopt,+xsave \
 	-m 1G \
@@ -78,16 +78,16 @@ $(BUILD_DIR)/.dir:
 	touch "$@"
 
 $(CLIENT_SHIM_OBJ): src/microkit_client_shim.c | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(SERVER_SHIM_OBJ): src/microkit_server_shim.c | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/unistd.h | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)/.dir
-	"$(ZIG)" cc -target x86_64-linux-gnu -std=c11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+	"$(ZIG)" cc -target x86_64-linux-gnu -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
 $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
 	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
