@@ -45,11 +45,6 @@ jobs:
           sdk_root="${sdk_tool%/bin/microkit}"
           echo "MICROKIT_SDK=$sdk_root" >> "$GITHUB_ENV"
 
-      - name: Inspect Phase 7 formatter changes
-        run: |
-          zig fmt src/posix/process_lifecycle.zig
-          git diff -- src/posix/process_lifecycle.zig
-
       - name: Run formatting, unit tests, and Microkit system build
         run: make check test build
 
