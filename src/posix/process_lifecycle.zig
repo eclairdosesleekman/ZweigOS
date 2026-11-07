@@ -294,7 +294,7 @@ fn testPlan(owner: ProcessId) process_resources.Plan {
 }
 
 test "prepared process commits, exits, and releases every authority reservation on reap" {
-    const std.testing = @import("std").testing;
+    const testing = std.testing;
     var processes: process_manager.Table = .{};
     const parent = try processes.initialize(1);
     const child = try processes.spawn(parent.id, 2);
@@ -303,29 +303,29 @@ test "prepared process commits, exits, and releases every authority reservation 
     var manager: Manager = .{};
 
     const ticket = try manager.prepare(&processes, &authority, child, plan);
-    try std.testing.expectEqual(child.pid, ticket.process.pid);
-    try std.testing.expectEqual(Phase.prepared, manager.phase(child.id).?);
-    try std.testing.expectEqual(@as(usize, plan.request_count), authority.activeObjectCount());
-    try std.testing.expectEqual(State.starting, processes.state(child.id).?);
+    try testing.expectEqual(child.pid, ticket.process.pid);
+    try testing.expectEqual(Phase.prepared, manager.phase(child.id).?);
+    try testing.expectEqual(@as(usize, plan.request_count), authority.activeObjectCount());
+    try testing.expectEqual(process_manager.State.starting, processes.state(child.id).?);
 
     try manager.commit(&processes, child.id);
-    try std.testing.expectEqual(Phase.running, manager.phase(child.id).?);
-    try std.testing.expectEqual(State.running, processes.state(child.id).?);
-    try std.testing.expectError(error.InvalidLifecycleState, manager.commit(&processes, child.id));
+    try testing.expectEqual(Phase.running, manager.phase(child.id).?);
+    try testing.expectEqual(process_manager.State.running, processes.state(child.id).?);
+    try testing.expectError(error.InvalidLifecycleState, manager.commit(&processes, child.id));
 
     try manager.exit(&processes, child.id, 37);
-    try std.testing.expectEqual(Phase.exited, manager.phase(child.id).?);
+    try testing.expectEqual(Phase.exited, manager.phase(child.id).?);
     const status = try manager.reap(&processes, &authority, parent.id, child.pid);
-    try std.testing.expectEqual(@as(i32, 37), status.exit_code);
-    try std.testing.expectEqual(@as(u32, 2), status.pid);
-    try std.testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
-    try std.testing.expectEqual(@as(usize, 0), authority.activeCapabilityCount());
-    try std.testing.expectEqual(@as(usize, 0), manager.activeCount());
-    try std.testing.expectEqual(@as(usize, 1), processes.activeCount());
+    try testing.expectEqual(@as(i32, 37), status.exit_code);
+    try testing.expectEqual(@as(u32, 2), status.pid);
+    try testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
+    try testing.expectEqual(@as(usize, 0), authority.activeCapabilityCount());
+    try testing.expectEqual(@as(usize, 0), manager.activeCount());
+    try testing.expectEqual(@as(usize, 1), processes.activeCount());
 }
 
 test "abort rolls back all resources and leaves a waitable failed child" {
-    const std.testing = @import("std").testing;
+    const testing = std.testing;
     var processes: process_manager.Table = .{};
     const parent = try processes.initialize(1);
     const child = try processes.spawn(parent.id, 2);
@@ -335,18 +335,18 @@ test "abort rolls back all resources and leaves a waitable failed child" {
 
     _ = try manager.prepare(&processes, &authority, child, plan);
     try manager.abort(&processes, &authority, child.id);
-    try std.testing.expectEqual(Phase.aborted, manager.phase(child.id).?);
-    try std.testing.expectEqual(State.failed, processes.state(child.id).?);
-    try std.testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
-    try std.testing.expectEqual(@as(usize, 0), authority.activeCapabilityCount());
+    try testing.expectEqual(Phase.aborted, manager.phase(child.id).?);
+    try testing.expectEqual(process_manager.State.failed, processes.state(child.id).?);
+    try testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
+    try testing.expectEqual(@as(usize, 0), authority.activeCapabilityCount());
 
     const status = try manager.reap(&processes, &authority, parent.id, child.pid);
-    try std.testing.expectEqual(abort_exit_code, status.exit_code);
-    try std.testing.expectEqual(@as(usize, 0), manager.activeCount());
+    try testing.expectEqual(abort_exit_code, status.exit_code);
+    try testing.expectEqual(@as(usize, 0), manager.activeCount());
 }
 
 test "reap rejects a non-child before releasing any reserved object" {
-    const std.testing = @import("std").testing;
+    const testing = std.testing;
     var processes: process_manager.Table = .{};
     const parent = try processes.initialize(1);
     const child_a = try processes.spawn(parent.id, 2);
@@ -357,23 +357,23 @@ test "reap rejects a non-child before releasing any reserved object" {
     var manager: Manager = .{};
 
     _ = try manager.prepare(&processes, &authority, grandchild, plan);
+    try processes.markRunning(child_a.id);
     try processes.markRunning(grandchild.id);
     try processes.exit(grandchild.id, 0);
 
-    try std.testing.expectError(
+    try testing.expectError(
         error.ChildNotFound,
         manager.reap(&processes, &authority, parent.id, grandchild.pid),
     );
-    try std.testing.expectEqual(@as(usize, plan.request_count), authority.activeObjectCount());
+    try testing.expectEqual(@as(usize, plan.request_count), authority.activeObjectCount());
 
     _ = try manager.reap(&processes, &authority, child_a.id, grandchild.pid);
-    try std.testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
-    try std.testing.expectEqual(child_b.pid, processes.lookupPid(child_b.pid).?.pid);
+    try testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
+    try testing.expectEqual(child_b.pid, processes.lookupPid(child_b.pid).?.pid);
 }
 
 test "reap revokes delegated descendants before destroying the process resources" {
-    const std.testing = @import("std").testing;
-    const parent_id = ProcessId{ .slot = 0, .generation = 1 };
+    const testing = std.testing;
     var processes: process_manager.Table = .{};
     const parent = try processes.initialize(1);
     const child = try processes.spawn(parent.id, 2);
@@ -386,16 +386,16 @@ test "reap revokes delegated descendants before destroying the process resources
     const delegate = try authority.grant(
         vspace_cap,
         child.id,
-        parent_id,
+        parent.id,
         .{ .map = true },
     );
     try manager.commit(&processes, child.id);
     try manager.exit(&processes, child.id, 0);
     _ = try manager.reap(&processes, &authority, parent.id, child.pid);
 
-    try std.testing.expectError(
+    try testing.expectError(
         error.StaleCapability,
-        authority.lookup(delegate, parent_id, .{ .map = true }),
+        authority.lookup(delegate, parent.id, .{ .map = true }),
     );
-    try std.testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
+    try testing.expectEqual(@as(usize, 0), authority.activeObjectCount());
 }
