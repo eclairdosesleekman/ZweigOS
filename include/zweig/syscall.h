@@ -13,7 +13,8 @@ enum zweig_syscall_number {
     ZWEIG_SYS_READ = 1,
     ZWEIG_SYS_WRITE = 2,
     ZWEIG_SYS_CLOSE = 3,
-    ZWEIG_SYS_GETPID = 4
+    ZWEIG_SYS_GETPID = 4,
+    ZWEIG_SYS_RUN_SLOT = 5
 };
 
 long zweig_syscall0(uint64_t number);
