@@ -43,14 +43,13 @@ pub fn run() i64 {
     };
 
     const status = zweig_process_slot_start(initial.rip, initial.rsp, initial.rflags);
-    if (status != 0) return -5; // EIO: the seL4 TCB operation failed.
+    if (status != 0) return -100 - @as(i64, @intCast(status));
 
     // With a higher-priority static SC, the worker runs immediately, records
     // its completion, and self-suspends before the supervisor resumes here.
     const completed_runs = @atomicLoad(u64, &state.run_count, .acquire);
     const completion = @atomicLoad(u64, &state.last_result, .acquire);
-    if (completed_runs != previous_runs + 1 or completion != abi.result_magic) {
-        return -5;
-    }
+    if (completed_runs != previous_runs + 1) return -101;
+    if (completion != abi.result_magic) return -102;
     return @intCast(completed_runs);
 }
