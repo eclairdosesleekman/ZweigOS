@@ -34,15 +34,10 @@ const max_entries = 8;
 pub const Table = struct {
     entries: [max_entries]?ServiceCapability = @splat(null),
 
-    pub fn install(
-        self: *Table,
-        capability: ServiceCapability,
-    ) error{AlreadyInstalled, TableFull}!void {
+    pub fn install(self: *Table, capability: ServiceCapability) error{ AlreadyInstalled, TableFull }!void {
         for (self.entries) |entry| {
             if (entry) |installed| {
-                if (installed.service == capability.service) {
-                    return error.AlreadyInstalled;
-                }
+                if (installed.service == capability.service) return error.AlreadyInstalled;
             }
         }
 
@@ -63,9 +58,7 @@ pub const Table = struct {
         for (self.entries) |entry| {
             if (entry) |installed| {
                 if (installed.service == service) {
-                    if (!installed.rights.allows(requested)) {
-                        return error.PermissionDenied;
-                    }
+                    if (!installed.rights.allows(requested)) return error.PermissionDenied;
                     return installed;
                 }
             }
@@ -85,16 +78,9 @@ test "service handle lookup enforces least-privilege rights" {
 
     const memory = try table.lookup(.memory, .{ .call = true });
     try std.testing.expectEqual(@as(u32, 0), memory.channel);
-    try std.testing.expectError(
-        error.PermissionDenied,
-        table.lookup(.memory, .{ .receive = true }),
-    );
+    try std.testing.expectError(error.PermissionDenied, table.lookup(.memory, .{ .receive = true }));
     try std.testing.expectError(
         error.AlreadyInstalled,
-        table.install(.{
-            .service = .memory,
-            .channel = 1,
-            .rights = .{ .call = true },
-        }),
+        table.install(.{ .service = .memory, .channel = 1, .rights = .{ .call = true } }),
     );
 }
