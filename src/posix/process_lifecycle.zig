@@ -52,17 +52,17 @@ pub const PrepareError = error{
 pub const CommitError = error{
     UnknownProcess,
     InvalidLifecycleState,
-} || error{StaleProcessId, InvalidStateTransition};
+} || error{ StaleProcessId, InvalidStateTransition };
 
 pub const AbortError = error{
     UnknownProcess,
     InvalidLifecycleState,
-} || ReleaseError || error{StaleProcessId, InvalidStateTransition};
+} || ReleaseError || error{ StaleProcessId, InvalidStateTransition };
 
 pub const ExitError = error{
     UnknownProcess,
     InvalidLifecycleState,
-} || error{StaleProcessId, InvalidStateTransition};
+} || error{ StaleProcessId, InvalidStateTransition };
 
 pub const ReapError = error{
     ProcessNotManaged,
@@ -246,9 +246,6 @@ pub const Manager = struct {
         return null;
     }
 
-    fn sameId(left: ProcessId, right: ProcessId) bool {
-        return left.slot == right.slot and left.generation == right.generation;
-    }
 };
 
 fn sameId(left: ProcessId, right: ProcessId) bool {
