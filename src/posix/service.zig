@@ -29,7 +29,7 @@ fn ensureDescriptors() void {
 fn writeConsole(fd: i64, length: u64) i64 {
     ensureDescriptors();
     if (!descriptors.canWrite(fd)) return abi.failure(.bad_fd);
-    if (length > @as(u64, shared_buffer_size)) return abi.failure(.invalid);
+    if (length > @as(u64, @intCast(shared_buffer_size))) return abi.failure(.invalid);
 
     const bytes: [*]const u8 = @ptrFromInt(shared_buffer_address);
     for (0..@as(usize, @intCast(length))) |index| {
@@ -58,7 +58,7 @@ export fn zweig_posix_dispatch(
     return switch (syscall_number) {
         @intFromEnum(abi.Syscall.getpid) => bootstrap_pid,
         @intFromEnum(abi.Syscall.write) => blk: {
-            if (argument0 >= @as(u64, fd_table.max_fds)) break :blk abi.failure(.bad_fd);
+            if (argument0 >= @as(u64, @intCast(fd_table.max_fds))) break :blk abi.failure(.bad_fd);
             break :blk writeConsole(@intCast(argument0), argument1);
         },
         @intFromEnum(abi.Syscall.read) => blk: {
