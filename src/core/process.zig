@@ -41,14 +41,9 @@ const Entry = struct {
 pub const Table = struct {
     entries: [max_processes]Entry = @splat(.{}),
 
-    pub fn register(
-        self: *Table,
-        domain_id: u16,
-    ) error{AlreadyRegistered, TableFull}!Id {
+    pub fn register(self: *Table, domain_id: u16) error{ AlreadyRegistered, TableFull }!Id {
         for (self.entries) |entry| {
-            if (entry.active and entry.domain_id == domain_id) {
-                return error.AlreadyRegistered;
-            }
+            if (entry.active and entry.domain_id == domain_id) return error.AlreadyRegistered;
         }
 
         for (&self.entries, 0..) |*entry, index| {
