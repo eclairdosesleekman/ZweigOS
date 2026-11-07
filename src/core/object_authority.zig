@@ -195,7 +195,7 @@ pub const Table = struct {
 
         for (requests) |request| {
             if (!validRequest(request)) return error.InvalidSpec;
-            if (!validRights(request.spec.kind, request.rights)) return error.InvalidRights;
+            if (!validRights(request.spec, request.rights)) return error.InvalidRights;
         }
 
         var object_slots: [max_batch]usize = undefined;
@@ -291,7 +291,7 @@ pub const Table = struct {
         if (!parent.rights.allows(requested)) return error.PermissionDenied;
 
         const object = self.getObjectConst(parent.object) orelse return error.StaleCapability;
-        if (!validRights(object.kind, requested)) return error.InvalidRights;
+        if (!validRights(.{ .kind = object.kind, .units = object.units, .mapping = object.mapping }, requested)) return error.InvalidRights;
 
         const slot_index = self.findFreeCapability() orelse return error.CapabilityTableFull;
         const generation = self.capabilities[slot_index].generation;
@@ -398,7 +398,7 @@ pub const Table = struct {
         }
 
         const object_index: usize = object_id.slot;
-        invalidateCapability(&self.capabilities[root_id.slot]);
+        invalidateCapability(&self.capabilities[@as(usize, root_id.slot)]);
         const generation = nextGeneration(self.objects[object_index].generation);
         self.objects[object_index] = .{ .generation = generation };
     }
@@ -503,8 +503,20 @@ fn allowedRights(kind: Kind) Rights {
     };
 }
 
-fn validRights(kind: Kind, rights: Rights) bool {
-    return rights.reserved == 0 and !rights.isEmpty() and allowedRights(kind).allows(rights);
+fn validRights(spec: ObjectSpec, rights: Rights) bool {
+    if (rights.reserved != 0 or rights.isEmpty() or
+        !allowedRights(spec.kind).allows(rights))
+    {
+        return false;
+    }
+    if (spec.kind == .frame_region) {
+        const mapping = spec.mapping orelse return false;
+        if (!rights.map) return false;
+        if (rights.read and !mapping.readable) return false;
+        if (rights.write and !mapping.writable) return false;
+        if (rights.execute and !mapping.executable) return false;
+    }
+    return true;
 }
 
 fn validRequest(request: Request) bool {
