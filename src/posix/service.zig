@@ -52,7 +52,7 @@ fn readConsole(fd: i64) i64 {
     return abi.failure(.try_again);
 }
 
-export fn zweig_posix_dispatch(
+pub export fn zweig_posix_dispatch(
     channel: u32,
     syscall_number: u64,
     argument0: u64,
@@ -80,7 +80,7 @@ export fn zweig_posix_dispatch(
     };
 }
 
-export fn init() void {
+pub export fn init() void {
     ensureProcesses();
     const startup: [:0]const u8 = "Zweig POSIX service: process 1 ready\r\n";
     for (startup) |character| {
@@ -88,4 +88,4 @@ export fn init() void {
     }
 }
 
-export fn notified(_: u32) void {}
+pub export fn notified(_: u32) void {}

@@ -26,6 +26,7 @@ CLIENT_SHIM_OBJ := $(BUILD_DIR)/microkit_client_shim.o
 SERVER_SHIM_OBJ := $(BUILD_DIR)/microkit_server_shim.o
 POSIX_CLIENT_OBJ := $(BUILD_DIR)/posix_client.o
 POSIX_SERVER_SHIM_OBJ := $(BUILD_DIR)/posix_server_shim.o
+CRT0_OBJ := $(BUILD_DIR)/microkit_crt0.o
 
 CORE_SOURCES := \
 	src/core/protocol.zig \
@@ -40,12 +41,14 @@ POSIX_SOURCES := \
 	src/posix/abi.zig \
 	src/posix/fd_table.zig \
 	src/posix/load_plan.zig \
+	src/posix/image_loader.zig \
 	src/posix/process_manager.zig \
 	src/posix/service.zig \
 	src/posix/server.zig \
 	src/posix/tests.zig
 
-ZIG_SOURCES := src/init.zig src/memory_manager/main.zig src/tests.zig $(CORE_SOURCES) $(POSIX_SOURCES)
+ZIG_SOURCES := src/init.zig src/memory_manager/main.zig src/memory_manager_root.zig \
+	src/posix_server_root.zig src/tests.zig $(CORE_SOURCES) $(POSIX_SOURCES)
 
 QEMU_ARGS = -cpu qemu64,+fsgsbase,+pdpe1gb,+xsaveopt,+xsave \
 	-m 1G \
@@ -67,7 +70,7 @@ toolchain-check:
 	@"$(ZIG)" fmt --check $(ZIG_SOURCES)
 
 check: toolchain-check
-	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 4 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
+	@test "$(MICROKIT_CONFIG)" = "debug" || { echo "error: Phase 5 currently requires MICROKIT_CONFIG=debug for the debug console" >&2; exit 1; }
 	@test -n "$(MICROKIT_SDK)" || { echo "error: set MICROKIT_SDK to the Microkit $(MICROKIT_VERSION) SDK directory" >&2; exit 1; }
 	@test -x "$(MICROKIT_TOOL)" || { echo "error: Microkit tool not found: $(MICROKIT_TOOL)" >&2; exit 1; }
 	@test -f "$(MICROKIT_LIB)" || { echo "error: Microkit library not found: $(MICROKIT_LIB)" >&2; exit 1; }
@@ -90,8 +93,11 @@ $(POSIX_CLIENT_OBJ): src/posix/client.c include/zweig/syscall.h include/zweig/un
 $(POSIX_SERVER_SHIM_OBJ): src/posix/server_shim.c | $(BUILD_DIR)/.dir
 	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
 
-$(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
-	"$(ZIG)" build-exe src/init.zig "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
+$(CRT0_OBJ): src/microkit_crt0.s | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-freestanding -c "$<" -o "$@"
+
+$(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CRT0_OBJ) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
+	"$(ZIG)" build-exe src/init.zig "$(CRT0_OBJ)" "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \
@@ -102,8 +108,8 @@ $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CLIENT_SHIM_OBJ) $(P
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_allocator.zig $(SERVER_SHIM_OBJ) Makefile
-	"$(ZIG)" build-exe src/memory_manager/main.zig "$(SERVER_SHIM_OBJ)" \
+$(MEMORY_ELF): src/memory_manager_root.zig src/memory_manager/main.zig $(CORE_SOURCES) $(CRT0_OBJ) $(SERVER_SHIM_OBJ) Makefile
+	"$(ZIG)" build-exe src/memory_manager_root.zig "$(CRT0_OBJ)" "$(SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \
@@ -114,8 +120,8 @@ $(MEMORY_ELF): src/memory_manager/main.zig src/core/protocol.zig src/core/page_a
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(POSIX_ELF): src/posix/server.zig $(POSIX_SOURCES) $(POSIX_SERVER_SHIM_OBJ) Makefile
-	"$(ZIG)" build-exe src/posix/server.zig "$(POSIX_SERVER_SHIM_OBJ)" \
+$(POSIX_ELF): src/posix_server_root.zig $(POSIX_SOURCES) $(CRT0_OBJ) $(POSIX_SERVER_SHIM_OBJ) Makefile
+	"$(ZIG)" build-exe src/posix_server_root.zig "$(CRT0_OBJ)" "$(POSIX_SERVER_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \

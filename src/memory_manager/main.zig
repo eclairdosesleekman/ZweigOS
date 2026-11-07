@@ -5,7 +5,8 @@
 // tells Zig not to synthesize the hosted std.start entry point.
 pub const _start = {};
 
-const PageAllocator = @import("../core/page_allocator.zig").PageAllocator;
+const page_allocator = @import("../core/page_allocator.zig");
+const PageAllocator = page_allocator.PageAllocator;
 const protocol = @import("../core/protocol.zig");
 
 extern fn zweig_console_puts(message: [*:0]const u8) void;
@@ -27,7 +28,7 @@ fn ensureAllocator() bool {
     return true;
 }
 
-export fn init() void {
+pub export fn init() void {
     if (!ensureAllocator()) {
         zweig_console_puts("Zweig memory manager: arena initialization failed\r\n");
         return;
@@ -35,10 +36,10 @@ export fn init() void {
     zweig_console_puts("Zweig memory manager: 256 x 4 KiB arena ready\r\n");
 }
 
-export fn notified(_: u32) void {}
+pub export fn notified(_: u32) void {}
 
 // Called only by the C ABI adapter from Microkit's protected() entry point.
-export fn zweig_memory_dispatch(
+pub export fn zweig_memory_dispatch(
     channel: u32,
     operation_raw: u64,
     argument: u64,
@@ -62,7 +63,7 @@ export fn zweig_memory_dispatch(
             return @backingInt(protocol.Status.ok);
         },
         .allocate_pages => {
-            if (argument == 0 or argument > PageAllocator.max_pages) {
+            if (argument == 0 or argument > page_allocator.max_pages) {
                 return @backingInt(protocol.Status.invalid_argument);
             }
             const lease = allocator.allocate(@intCast(argument)) catch |err| {
