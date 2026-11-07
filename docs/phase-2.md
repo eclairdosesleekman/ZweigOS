@@ -67,7 +67,9 @@ server returns a two-word reply containing a status code and a 64-bit value.
 ## Memory arena
 
 The memory service owns a 1 MiB Microkit memory region, divided into 256
-4 KiB pages. Its Zig allocator:
+4 KiB pages. Microkit does not guarantee that an automatically placed memory
+region is physically contiguous; this allocator manages contiguous runs in
+the region's virtual mapping only. Its Zig allocator:
 
 - finds contiguous free page runs;
 - zeros pages before leasing them;
