@@ -88,9 +88,8 @@ pub const Manager = struct {
         child: process_manager.ProcessInfo,
         plan: process_resources.Plan,
     ) PrepareError!LaunchTicket {
-        if (processes.pid(child.id) == null or processes.pid(child.id).? != child.pid) {
-            return error.StaleProcess;
-        }
+        const registered_pid = processes.pid(child.id) orelse return error.StaleProcess;
+        if (registered_pid != child.pid) return error.StaleProcess;
         const process_state = processes.state(child.id) orelse return error.StaleProcess;
         if (process_state != .starting) return error.ProcessNotStarting;
         if (!sameId(plan.owner, child.id)) return error.WrongPlanOwner;
@@ -147,7 +146,8 @@ pub const Manager = struct {
     ) AbortError!void {
         const record = self.find(id) orelse return error.UnknownProcess;
         if (record.phase != .prepared) return error.InvalidLifecycleState;
-        if (processes.state(id) != .starting) return error.InvalidLifecycleState;
+        const process_state = processes.state(id) orelse return error.UnknownProcess;
+        if (process_state != .starting) return error.InvalidLifecycleState;
 
         try self.releaseResources(record, authority);
         try processes.fail(id, abort_exit_code);
