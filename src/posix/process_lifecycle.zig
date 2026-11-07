@@ -242,12 +242,11 @@ pub const Manager = struct {
     }
 
     fn findConst(self: *const Manager, id: ProcessId) ?*const Record {
-        for (self.records) |*record| {
+        for (&self.records) |*record| {
             if (record.active and sameId(record.process_id, id)) return record;
         }
         return null;
     }
-
 };
 
 fn sameId(left: ProcessId, right: ProcessId) bool {
