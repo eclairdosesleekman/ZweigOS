@@ -9,4 +9,5 @@ comptime {
     _ = worker.init;
     _ = worker.notified;
     _ = worker.zweig_process_slot_payload;
+    _ = worker.zweig_process_slot_finish;
 }
