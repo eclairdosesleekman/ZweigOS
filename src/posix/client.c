@@ -56,6 +56,11 @@ long zweig_syscall2(uint64_t number, uint64_t arg0, uint64_t arg1)
     return (long)(int64_t)microkit_mr_get(0);
 }
 
+long zweig_run_slot(void)
+{
+    return zweig_syscall0(ZWEIG_SYS_RUN_SLOT);
+}
+
 long zweig_getpid(void)
 {
     return zweig_syscall0(ZWEIG_SYS_GETPID);
