@@ -88,6 +88,14 @@ Phase 8 verifies a real TCB register handoff through one statically provisioned 
 
 Phase 9 executes caller-supplied flat machine code in a pre-mapped slot. It does not parse ELF, create dynamic kernel objects, or build arbitrary process address spaces. See [docs/phase-9.md](docs/phase-9.md).
 
+### Phase 10 (in progress): dynamic kernel object management foundation
+
+- Add a bounded CSpace slot-window allocator with generation-checked leases.
+- Add a conservative Untyped pool planner that requires successful parent-cap Revoke before reuse.
+- Add a transactional object-manager prototype and an SDK-bound C ABI shim for Retype and CNode operations.
+
+This is an implementation slice, **not Phase 10 completion**. The current Microkit SDF does not hand an Untyped capability to the existing memory-manager PD, so live object creation is not yet wired into the running system. See [docs/phase-10-implementation-notes.md](docs/phase-10-implementation-notes.md) for supported object kinds, remaining integration work, and validation status.
+
 ## Toolchain
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)

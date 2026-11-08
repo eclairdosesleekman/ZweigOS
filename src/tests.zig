@@ -4,4 +4,5 @@
 test {
     _ = @import("core/tests.zig");
     _ = @import("posix/tests.zig");
+    _ = @import("kernel/tests.zig");
 }

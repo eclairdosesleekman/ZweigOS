@@ -30,6 +30,7 @@ POSIX_SERVER_SHIM_OBJ := $(BUILD_DIR)/posix_server_shim.o
 PROCESS_SLOT_SHIM_OBJ := $(BUILD_DIR)/process_slot_shim.o
 PROCESS_SLOT_ENTRY_OBJ := $(BUILD_DIR)/process_slot_entry.o
 CRT0_OBJ := $(BUILD_DIR)/microkit_crt0.o
+KERNEL_SHIM_OBJ := $(BUILD_DIR)/sel4_kernel_shim.o
 
 CORE_SOURCES := \
 	src/core/protocol.zig \
@@ -41,6 +42,13 @@ CORE_SOURCES := \
 	src/core/elf64.zig \
 	src/core/process_slot_abi.zig \
 	src/core/tests.zig
+
+KERNEL_SOURCES := \
+	src/kernel/cspace_allocator.zig \
+	src/kernel/untyped_pool.zig \
+	src/kernel/object_manager.zig \
+	src/kernel/sel4_backend.zig \
+	src/kernel/tests.zig
 
 POSIX_SOURCES := \
 	src/posix/abi.zig \
@@ -58,7 +66,7 @@ POSIX_SOURCES := \
 	src/posix/tests.zig
 
 ZIG_SOURCES := src/init.zig src/memory_manager/main.zig src/memory_manager_root.zig \
-	src/posix_server_root.zig src/process_slot_root.zig src/process_slot/main.zig src/tests.zig $(CORE_SOURCES) $(POSIX_SOURCES)
+	src/posix_server_root.zig src/process_slot_root.zig src/process_slot/main.zig src/tests.zig $(CORE_SOURCES) $(KERNEL_SOURCES) $(POSIX_SOURCES)
 
 QEMU_ARGS = -cpu qemu64,+fsgsbase,+pdpe1gb,+xsaveopt,+xsave \
 	-m 1G \
@@ -112,6 +120,9 @@ $(PROCESS_SLOT_ENTRY_OBJ): src/process_slot_entry.s | $(BUILD_DIR)/.dir
 $(CRT0_OBJ): src/microkit_crt0.s | $(BUILD_DIR)/.dir
 	"$(ZIG)" cc -target x86_64-freestanding -c "$<" -o "$@"
 
+$(KERNEL_SHIM_OBJ): src/kernel/sel4_shim.c include/zweig/kernel.h | $(BUILD_DIR)/.dir
+	"$(ZIG)" cc -target x86_64-freestanding -std=gnu11 -ffreestanding -fno-stack-protector -Wall -Wextra -Werror -Iinclude -I"$(BOARD_DIR)/include" -c "$<" -o "$@"
+
 $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CRT0_OBJ) $(CLIENT_SHIM_OBJ) $(POSIX_CLIENT_OBJ) Makefile
 	"$(ZIG)" build-exe src/init.zig "$(CRT0_OBJ)" "$(CLIENT_SHIM_OBJ)" "$(POSIX_CLIENT_OBJ)" \
 		-target x86_64-freestanding \
@@ -124,8 +135,8 @@ $(APP_ELF): src/init.zig $(CORE_SOURCES) $(POSIX_SOURCES) $(CRT0_OBJ) $(CLIENT_S
 		-T"$(MICROKIT_LINKER_SCRIPT)" \
 		-femit-bin="$@"
 
-$(MEMORY_ELF): src/memory_manager_root.zig src/memory_manager/main.zig $(CORE_SOURCES) $(CRT0_OBJ) $(SERVER_SHIM_OBJ) Makefile
-	"$(ZIG)" build-exe src/memory_manager_root.zig "$(CRT0_OBJ)" "$(SERVER_SHIM_OBJ)" \
+$(MEMORY_ELF): src/memory_manager_root.zig src/memory_manager/main.zig $(CORE_SOURCES) $(KERNEL_SOURCES) $(CRT0_OBJ) $(SERVER_SHIM_OBJ) $(KERNEL_SHIM_OBJ) Makefile
+	"$(ZIG)" build-exe src/memory_manager_root.zig "$(CRT0_OBJ)" "$(SERVER_SHIM_OBJ)" "$(KERNEL_SHIM_OBJ)" \
 		-target x86_64-freestanding \
 		-O Debug \
 		-fentry=_start --force_undefined _start \
