@@ -39,6 +39,7 @@ pub const Error = error{
     UnsupportedClass,
     UnsupportedEndian,
     UnsupportedType,
+    UnsupportedDynamicExecutable,
     UnsupportedMachine,
     UnsupportedVersion,
     InvalidHeaderSize,
@@ -83,7 +84,9 @@ pub fn validate(image: []const u8) Error!Header {
     for (0..phnum) |index| {
         const offset64 = phoff + (@as(u64, @intCast(index)) * phentsize);
         const offset: usize = @intCast(offset64);
-        if (read32(image, offset) != 1) continue; // PT_LOAD
+        const program_type = read32(image, offset);
+        if (program_type == 3) return error.UnsupportedDynamicExecutable; // PT_INTERP
+        if (program_type != 1) continue; // PT_LOAD
 
         const flags = read32(image, offset + 4);
         const file_offset = read64(image, offset + 8);
