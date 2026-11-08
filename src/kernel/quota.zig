@@ -3,6 +3,7 @@
 
 const process = @import("../core/process.zig");
 pub const max_owners: usize = process.max_processes;
+pub const max_leases: usize = 256;
 
 pub const Usage = struct {
     frame_pages: u64 = 0,
@@ -51,7 +52,14 @@ pub const Usage = struct {
 };
 
 pub const Limits = Usage;
-pub const Lease = struct { owner: process.Id, generation: u32, usage: Usage };
+pub const Lease = struct { slot: u16, owner: process.Id, generation: u32, usage: Usage };
+
+const LeaseRecord = struct {
+    active: bool = false,
+    generation: u32 = 1,
+    owner: process.Id = .{ .slot = 0, .generation = 0 },
+    usage: Usage = .{},
+};
 
 const Record = struct {
     active: bool = false,
@@ -68,7 +76,7 @@ pub const Error = error{
 
 pub const Table = struct {
     records: [max_owners]Record = @splat(.{}),
-    next_lease_generation: u32 = 1,
+    leases: [max_leases]LeaseRecord = @splat(.{}),
 
     pub fn register(self: *Table, owner: process.Id, limits: Limits) Error!void {
         if (!validOwner(owner)) return error.InvalidOwner;
@@ -85,16 +93,33 @@ pub const Table = struct {
         const record = self.find(owner) orelse return error.UnknownOwner;
         const next = try record.used.add(usage);
         if (!next.fitsWithin(record.limits)) return error.QuotaExceeded;
-        const generation = self.next_lease_generation;
-        self.next_lease_generation = nextGeneration(generation);
+        const lease_slot = self.freeLease() orelse return error.TableFull;
+        const generation = lease_slot.generation;
+        const index = self.leaseIndex(lease_slot) orelse return error.CorruptState;
+        lease_slot.* = .{
+            .active = true,
+            .generation = generation,
+            .owner = owner,
+            .usage = usage,
+        };
         record.used = next;
-        return .{ .owner = owner, .generation = generation, .usage = usage };
+        return .{ .slot = @intCast(index), .owner = owner, .generation = generation, .usage = usage };
     }
 
     pub fn release(self: *Table, lease: Lease) Error!void {
+        const index: usize = lease.slot;
+        if (index >= max_leases) return error.StaleLease;
+        const reservation = &self.leases[index];
+        if (!reservation.active or reservation.generation != lease.generation or
+            !sameOwner(reservation.owner, lease.owner) or
+            !std.meta.eql(reservation.usage, lease.usage))
+        {
+            return error.StaleLease;
+        }
         const record = self.find(lease.owner) orelse return error.StaleLease;
-        _ = lease.generation;
-        record.used = try record.used.subtract(lease.usage);
+        record.used = try record.used.subtract(reservation.usage);
+        const generation = nextGeneration(reservation.generation);
+        reservation.* = .{ .generation = generation };
     }
 
     pub fn usage(self: *const Table, owner: process.Id) ?Usage {
@@ -107,6 +132,20 @@ pub const Table = struct {
         if (!record.used.fitsWithin(.{})) return error.CorruptState;
         const generation = nextGeneration(record.generation);
         record.* = .{ .generation = generation };
+    }
+
+    fn freeLease(self: *Table) ?*LeaseRecord {
+        for (&self.leases) |*lease| {
+            if (!lease.active) return lease;
+        }
+        return null;
+    }
+
+    fn leaseIndex(self: *const Table, target: *const LeaseRecord) ?usize {
+        for (&self.leases, 0..) |*lease, index| {
+            if (lease == target) return index;
+        }
+        return null;
     }
 
     fn freeRecord(self: *Table) ?*Record {
@@ -161,6 +200,7 @@ test "quota reservation is atomic across every resource dimension" {
     try std.testing.expectEqual(@as(u64, 8), table.usage(owner).?.frame_pages);
     try std.testing.expectEqual(@as(u64, 4), table.usage(owner).?.cspace_slots);
     try table.release(lease);
+    try std.testing.expectError(error.StaleLease, table.release(lease));
     try std.testing.expectEqual(Usage{}, table.usage(owner).?);
     try table.unregister(owner);
 }
