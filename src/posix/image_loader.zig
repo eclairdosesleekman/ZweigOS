@@ -19,6 +19,9 @@ const user_min_address: u64 = 0x1_0000;
 const user_address_end: u64 = 0x0000_8000_0000_0000;
 
 const at_null: u64 = 0;
+const at_phdr: u64 = 3;
+const at_phent: u64 = 4;
+const at_phnum: u64 = 5;
 const at_pagesz: u64 = 6;
 const at_entry: u64 = 9;
 const max_usize: u64 = @intCast(std.math.maxInt(usize));
@@ -49,6 +52,9 @@ pub const LoadedImage = struct {
     stack_bottom: u64,
     stack_top: u64,
     stack_guard_bottom: u64,
+    program_header_address: u64,
+    program_header_entry_size: u16,
+    program_header_count: u16,
     mappings: [max_mappings]Mapping,
     mapping_count: usize,
     argument_count: usize,
@@ -69,11 +75,17 @@ pub const Error = load_plan.Error || error{
     TooManyEnvironmentEntries,
     InvalidArgumentString,
     StackOverflow,
+    InvalidProgramHeaderTable,
 };
 
 const StackAux = struct {
     tag: u64,
     value: u64,
+};
+
+const StackBuild = struct {
+    stack_pointer: u64,
+    program_header_address: u64,
 };
 
 fn alignDown(value: u64) u64 {
@@ -132,13 +144,30 @@ fn pushString(
     return address_result[0];
 }
 
+fn pushBytes(
+    stack: []u8,
+    cursor: *usize,
+    virtual_base: u64,
+    bytes: []const u8,
+) Error!u64 {
+    if (bytes.len == 0 or bytes.len > cursor.*) return error.StackOverflow;
+    cursor.* -= bytes.len;
+    @memcpy(stack[cursor.* .. cursor.* + bytes.len], bytes);
+    const address = @addWithOverflow(virtual_base, @as(u64, @intCast(cursor.*)));
+    if (address[1] != 0) return error.InvalidStackLayout;
+    return address[0];
+}
+
 fn buildInitialStack(
     stack: []u8,
     virtual_base: u64,
     virtual_top: u64,
     entry: u64,
     arguments: Arguments,
-) Error!u64 {
+    program_headers: []const u8,
+    program_header_entry_size: u16,
+    program_header_count: u16,
+) Error!StackBuild {
     if (arguments.argv.len > max_arguments) return error.TooManyArguments;
     if (arguments.envp.len > max_environment) return error.TooManyEnvironmentEntries;
 
@@ -152,8 +181,12 @@ fn buildInitialStack(
     for (arguments.envp, 0..) |environment, index| {
         envp_pointers[index] = try pushString(stack, &cursor, virtual_base, environment);
     }
+    const program_header_address = try pushBytes(stack, &cursor, virtual_base, program_headers);
 
     const auxiliary = [_]StackAux{
+        .{ .tag = at_phdr, .value = 0 }, // Patched with the copied table address below.
+        .{ .tag = at_phent, .value = program_header_entry_size },
+        .{ .tag = at_phnum, .value = program_header_count },
         .{ .tag = at_pagesz, .value = @as(u64, page_size) },
         .{ .tag = at_entry, .value = entry },
         .{ .tag = at_null, .value = 0 },
@@ -174,7 +207,11 @@ fn buildInitialStack(
     var auxiliary_index = auxiliary.len;
     while (auxiliary_index > 0) {
         auxiliary_index -= 1;
-        try pushWord(stack, &cursor, auxiliary[auxiliary_index].value);
+        const auxiliary_value = if (auxiliary[auxiliary_index].tag == at_phdr)
+            program_header_address
+        else
+            auxiliary[auxiliary_index].value;
+        try pushWord(stack, &cursor, auxiliary_value);
         try pushWord(stack, &cursor, auxiliary[auxiliary_index].tag);
     }
 
@@ -200,7 +237,10 @@ fn buildInitialStack(
     if (stack_pointer % 16 != 0 or stack_pointer >= virtual_top) {
         return error.InvalidStackLayout;
     }
-    return stack_pointer;
+    return .{
+        .stack_pointer = stack_pointer,
+        .program_header_address = program_header_address,
+    };
 }
 
 /// Materialize one static x86-64 ELF executable into an existing staging arena.
@@ -235,6 +275,9 @@ pub fn load(
         .stack_bottom = stack_bottom,
         .stack_top = options.stack_top,
         .stack_guard_bottom = stack_guard_bottom,
+        .program_header_address = 0,
+        .program_header_entry_size = plan.program_header_entry_size,
+        .program_header_count = plan.program_header_count,
         .mappings = @splat(.{}),
         .mapping_count = 0,
         .argument_count = options.arguments.argv.len,
@@ -297,13 +340,33 @@ pub fn load(
     const stack_size: usize = @intCast(options.stack_size);
     const stack_backing_offset = try reservePages(arena, &arena_cursor, stack_size);
     const stack = arena[stack_backing_offset .. stack_backing_offset + stack_size];
-    result.stack_pointer = try buildInitialStack(
+    const program_header_bytes = @mulWithOverflow(
+        @as(u64, plan.program_header_entry_size),
+        @as(u64, plan.program_header_count),
+    );
+    if (program_header_bytes[1] != 0 or program_header_bytes[0] == 0 or
+        program_header_bytes[0] > max_usize)
+    {
+        return error.InvalidProgramHeaderTable;
+    }
+    const program_header_start = @addWithOverflow(plan.program_header_offset, program_header_bytes[0]);
+    if (program_header_start[1] != 0 or program_header_start[0] > @as(u64, @intCast(image.len))) {
+        return error.InvalidProgramHeaderTable;
+    }
+    const phoff: usize = @intCast(plan.program_header_offset);
+    const phsize: usize = @intCast(program_header_bytes[0]);
+    const stack_build = try buildInitialStack(
         stack,
         stack_bottom,
         options.stack_top,
         plan.entry,
         options.arguments,
+        image[phoff .. phoff + phsize],
+        plan.program_header_entry_size,
+        plan.program_header_count,
     );
+    result.stack_pointer = stack_build.stack_pointer;
+    result.program_header_address = stack_build.program_header_address;
 
     result.mappings[result.mapping_count] = .{
         .virtual_address = stack_bottom,
