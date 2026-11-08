@@ -181,6 +181,9 @@ fn buildInitialStack(
     for (arguments.envp, 0..) |environment, index| {
         envp_pointers[index] = try pushString(stack, &cursor, virtual_base, environment);
     }
+    const phdr_padding = cursor % @alignOf(u64);
+    cursor -= phdr_padding;
+    @memset(stack[cursor .. cursor + phdr_padding], 0);
     const program_header_address = try pushBytes(stack, &cursor, virtual_base, program_headers);
 
     const auxiliary = [_]StackAux{
