@@ -487,7 +487,9 @@ test "object manager quarantines resources when Retype rollback fails" {
         error.RollbackFailed,
         manager.create(.{ .owner = 3, .kind = .frame_4k }),
     );
-    try std.testing.expectEqual(@as(usize, 0), slots.freeCount());
+    // Exactly the one reserved destination slot is quarantined; the other
+    // seven slots remain available to unrelated allocations.
+    try std.testing.expectEqual(@as(usize, 7), slots.freeCount());
     try std.testing.expectEqual(@as(usize, 0), pool.freeRootCount());
 }
 
