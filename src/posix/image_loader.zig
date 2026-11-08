@@ -512,12 +512,22 @@ test "ELF loader copies PT_LOAD bytes, clears BSS, and builds an aligned argv/en
     try std.testing.expectEqual(@as(u64, 0), readWord(arena[0..], stack_offset + 24));
     const env0 = readWord(arena[0..], stack_offset + 32);
     try std.testing.expectEqual(@as(u64, 0), readWord(arena[0..], stack_offset + 40));
-    try std.testing.expectEqual(@as(u64, at_pagesz), readWord(arena[0..], stack_offset + 48));
-    try std.testing.expectEqual(@as(u64, page_size), readWord(arena[0..], stack_offset + 56));
-    try std.testing.expectEqual(@as(u64, at_entry), readWord(arena[0..], stack_offset + 64));
-    try std.testing.expectEqual(loaded.entry, readWord(arena[0..], stack_offset + 72));
-    try std.testing.expectEqual(@as(u64, at_null), readWord(arena[0..], stack_offset + 80));
-    try std.testing.expectEqual(@as(u64, 0), readWord(arena[0..], stack_offset + 88));
+    try std.testing.expectEqual(@as(u64, at_phdr), readWord(arena[0..], stack_offset + 48));
+    try std.testing.expectEqual(loaded.program_header_address, readWord(arena[0..], stack_offset + 56));
+    try std.testing.expectEqual(@as(u64, at_phent), readWord(arena[0..], stack_offset + 64));
+    try std.testing.expectEqual(@as(u64, 56), readWord(arena[0..], stack_offset + 72));
+    try std.testing.expectEqual(@as(u64, at_phnum), readWord(arena[0..], stack_offset + 80));
+    try std.testing.expectEqual(@as(u64, 2), readWord(arena[0..], stack_offset + 88));
+    try std.testing.expectEqual(@as(u64, at_pagesz), readWord(arena[0..], stack_offset + 96));
+    try std.testing.expectEqual(@as(u64, page_size), readWord(arena[0..], stack_offset + 104));
+    try std.testing.expectEqual(@as(u64, at_entry), readWord(arena[0..], stack_offset + 112));
+    try std.testing.expectEqual(loaded.entry, readWord(arena[0..], stack_offset + 120));
+    try std.testing.expectEqual(@as(u64, at_null), readWord(arena[0..], stack_offset + 128));
+    try std.testing.expectEqual(@as(u64, 0), readWord(arena[0..], stack_offset + 136));
+
+    const phdr_offset = stack_mapping.backing_offset +
+        @as(usize, @intCast(loaded.program_header_address - loaded.stack_bottom));
+    try std.testing.expect(std.mem.eql(u8, arena[phdr_offset .. phdr_offset + 112], image[64..176]));
 
     const argv0_offset = stack_mapping.backing_offset +
         @as(usize, @intCast(argv0 - loaded.stack_bottom));
@@ -530,10 +540,17 @@ test "ELF loader copies PT_LOAD bytes, clears BSS, and builds an aligned argv/en
     try std.testing.expect(std.mem.eql(u8, arena[env0_offset .. env0_offset + 7], "HOME=/\x00"));
 }
 
-test "ELF loader rejects ET_DYN until relocation support exists" {
-    const image = testImage(3, 5, 0x20_2100);
+test "ELF loader rejects ET_DYN and PT_INTERP dynamic executables" {
     var arena: [64 * page_size]u8 align(page_size) = undefined;
-    try std.testing.expectError(error.UnsupportedImageType, load(&image, arena[0..], .{
+
+    const dynamic = testImage(3, 5, 0x20_2100);
+    try std.testing.expectError(error.UnsupportedImageType, load(&dynamic, arena[0..], .{
+        .stack_size = 2 * page_size,
+    }));
+
+    var interpreted = testImage(2, 5, 0x20_2100);
+    write32(&interpreted, 64, 3); // PT_INTERP
+    try std.testing.expectError(error.UnsupportedDynamicExecutable, load(&interpreted, arena[0..], .{
         .stack_size = 2 * page_size,
     }));
 }
