@@ -159,7 +159,7 @@ pub const Manager = struct {
         var allocation_size_bits: u8 = 0;
         const layout_status = self.ops.object_layout(
             self.ops.context,
-            @as(u32, @backingInt(request.kind),
+            @as(u32, @backingInt(request.kind)),
             request.requested_size_bits,
             &object_type,
             &retype_size_bits,
