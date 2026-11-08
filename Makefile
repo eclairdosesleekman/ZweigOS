@@ -45,6 +45,10 @@ CORE_SOURCES := \
 
 KERNEL_SOURCES := \
 	src/kernel/cspace_allocator.zig \
+	src/kernel/cspace_location.zig \
+	src/kernel/quota.zig \
+	src/kernel/audit_log.zig \
+	src/kernel/capability_manager.zig \
 	src/kernel/untyped_pool.zig \
 	src/kernel/object_manager.zig \
 	src/kernel/sel4_backend.zig \
