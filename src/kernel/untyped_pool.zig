@@ -166,7 +166,7 @@ pub const Pool = struct {
     }
 
     pub fn rootCap(self: *const Pool, lease: Lease) Error!u64 {
-        const root = try self.getRoot(lease);
+        const root = try self.getRootConst(lease);
         return root.cap_cptr;
     }
 
@@ -210,8 +210,11 @@ pub const Pool = struct {
         return count;
     }
 
-
     fn getRoot(self: *Pool, lease: Lease) Error!*Root {
+        return @constCast(try self.getRootConst(lease));
+    }
+
+    fn getRootConst(self: *const Pool, lease: Lease) Error!*const Root {
         const index: usize = lease.root.slot;
         if (index >= max_roots) return error.StaleLease;
         const root = &self.roots[index];
