@@ -90,8 +90,8 @@ pub const RuntimeOps = struct {
         process_manager.ProcessInfo,
     ) anyerror!u64,
 
-    resume: *const fn (?*anyopaque, RuntimeObjects) anyerror!void,
-    suspend: *const fn (?*anyopaque, RuntimeObjects) anyerror!void,
+    resume_tcb: *const fn (?*anyopaque, RuntimeObjects) anyerror!void,
+    suspend_tcb: *const fn (?*anyopaque, RuntimeObjects) anyerror!void,
     unpublish_badge: *const fn (?*anyopaque, u64) anyerror!void,
     /// Must unmap every mapped ELF, stack and IPC Frame before destroy().
     unmap_all: *const fn (?*anyopaque, RuntimeObjects) anyerror!void,
@@ -295,10 +295,10 @@ pub const Manager = struct {
         self.lifecycle.commit(processes, child.id) catch {
             return self.rollbackPrepared(processes, authority, ops, record, error.TcbConfigurationFailed);
         };
-        ops.resume(ops.context, objects) catch {
+        ops.resume_tcb(ops.context, objects) catch {
             // commit made the child waitable as a running policy object; record
             // a failed launch as exited and leave object destruction to reap.
-            _ = ops.suspend(ops.context, objects) catch {};
+            _ = ops.suspend_tcb(ops.context, objects) catch {};
             if (record.badge_published) {
                 ops.unpublish_badge(ops.context, record.badge) catch {
                     record.state = .quarantined;
@@ -327,7 +327,7 @@ pub const Manager = struct {
     ) ExitError!void {
         const record = self.findProcess(id) orelse return error.UnknownProcess;
         if (record.state != .running) return error.InvalidState;
-        ops.suspend(ops.context, record.objects) catch return error.SuspendFailed;
+        ops.suspend_tcb(ops.context, record.objects) catch return error.SuspendFailed;
         if (record.badge_published) {
             ops.unpublish_badge(ops.context, record.badge) catch return error.BadgeRevocationFailed;
             record.badge_published = false;
