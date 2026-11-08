@@ -213,7 +213,7 @@ pub const Manager = struct {
         const child = processes.spawn(parent, domain_id) catch return error.ProcessTableFull;
         plan.owner = child.id;
 
-        self.lifecycle.prepare(
+        _ = self.lifecycle.prepare(
             processes,
             authority,
             child,
