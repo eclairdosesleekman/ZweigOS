@@ -101,7 +101,7 @@ pub const Manager = struct {
 
         // reserveBatch validates all requests and checks both tables' capacity
         // before writing any slot; after success, storing this record cannot fail.
-        const reservations = try authority.reserveBatch(
+        const reservation_set = try authority.reserveBatch(
             child.id,
             plan.requests[0..plan.request_count],
         );
@@ -111,7 +111,7 @@ pub const Manager = struct {
             .process_id = child.id,
             .pid = child.pid,
             .phase = .prepared,
-            .reservations = reservations,
+            .reservations = reservation_set,
             .request_count = plan.request_count,
         };
         for (plan.requests[0..plan.request_count], 0..) |request, index| {
@@ -202,6 +202,13 @@ pub const Manager = struct {
         return record.phase;
     }
 
+    /// Return the immutable reservation snapshot for the runtime adapter.
+    /// The identifiers are Zweig Ledger handles, never seL4 CPtrs.
+    pub fn reservations(self: *const Manager, id: ProcessId) ?object_authority.ReservationSet {
+        const record = self.findConst(id) orelse return null;
+        return record.reservations;
+    }
+
     pub fn activeCount(self: *const Manager) usize {
         var count: usize = 0;
         for (self.records) |record| {
@@ -261,6 +268,9 @@ fn testImage() @import("image_loader.zig").LoadedImage {
         .stack_bottom = 0x70_0000,
         .stack_top = 0x70_2000,
         .stack_guard_bottom = 0x6f_f000,
+        .program_header_address = 0x70_1c00,
+        .program_header_entry_size = 56,
+        .program_header_count = 2,
         .mappings = @splat(.{}),
         .mapping_count = 2,
         .argument_count = 1,

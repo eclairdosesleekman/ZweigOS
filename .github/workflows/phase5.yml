@@ -47,8 +47,8 @@ jobs:
 
       - name: Show Zig formatter output for the new loader
         run: |
-          zig fmt src/posix/image_loader.zig
-          git diff -- src/posix/image_loader.zig
+          zig fmt src/posix/dynamic_process.zig
+          git diff -- src/posix/dynamic_process.zig
 
       - name: Run formatting, unit tests, and Microkit system build
         run: make check test build
