@@ -58,6 +58,7 @@ POSIX_SOURCES := \
 	src/posix/process_resources.zig \
 	src/posix/x86_64_context.zig \
 	src/posix/address_space.zig \
+	src/posix/dynamic_process.zig \
 	src/posix/process_slot.zig \
 	src/posix/process_slot_image.zig \
 	src/posix/process_lifecycle.zig \
