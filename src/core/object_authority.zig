@@ -158,6 +158,7 @@ pub const GrantError = error{
     StaleCapability,
     PermissionDenied,
     CapabilityTableFull,
+    HasDescendants,
 };
 
 pub const LookupError = error{
@@ -373,6 +374,47 @@ pub const Table = struct {
             }
         }
         return revoked;
+    }
+
+    /// Cancel one just-created delegation when the kernel Mint/Copy step
+    /// fails. This only removes a leaf capability whose parent is caller-owned.
+    /// It is intentionally stricter than revokeDescendants: a capability with
+    /// children cannot be cancelled because kernel state may already be visible.
+    pub fn cancelGrant(
+        self: *Table,
+        parent_id: CapabilityId,
+        child_id: CapabilityId,
+        caller: process.Id,
+    ) GrantError!void {
+        const parent = self.getCapability(parent_id) orelse return error.StaleCapability;
+        const child = self.getCapability(child_id) orelse return error.StaleCapability;
+        if (!sameOwner(parent.holder, caller) or !parent.rights.grant or
+            child.root or child.parent == null or
+            !sameCapability(child.parent.?, parent_id))
+        {
+            return error.PermissionDenied;
+        }
+        for (self.capabilities) |candidate| {
+            if (!candidate.active or candidate.parent == null) continue;
+            if (sameCapability(candidate.parent.?, child_id)) return error.HasDescendants;
+        }
+        invalidateCapability(self.getCapability(child_id).?);
+    }
+
+    /// Forget a delegated capability after the backend has successfully
+    /// revoked its descendants and deleted the capability from its CSpace.
+    pub fn deleteDelegated(
+        self: *Table,
+        capability_id: CapabilityId,
+        holder: process.Id,
+    ) DestroyError!void {
+        const capability = self.getCapability(capability_id) orelse return error.StaleCapability;
+        if (capability.root or !sameOwner(capability.holder, holder)) return error.PermissionDenied;
+        for (self.capabilities) |candidate| {
+            if (!candidate.active or candidate.parent == null) continue;
+            if (sameCapability(candidate.parent.?, capability_id)) return error.LiveDelegates;
+        }
+        invalidateCapability(self.getCapability(capability_id).?);
     }
 
     /// Destroy a reserved object after all delegated capabilities have been
