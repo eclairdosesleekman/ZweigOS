@@ -88,7 +88,7 @@ Phase 8 verifies a real TCB register handoff through one statically provisioned 
 
 Phase 9 executes caller-supplied flat machine code in a pre-mapped slot. It does not parse ELF, create dynamic kernel objects, or build arbitrary process address spaces. See [docs/phase-9.md](docs/phase-9.md).
 
-### Phase 10 (in progress): dynamic kernel object management foundation
+### Phase 10: dynamic kernel object management foundation
 
 - Add a bounded CSpace slot-window allocator with generation-checked leases.
 - Add a conservative Untyped pool planner that requires successful parent-cap Revoke before reuse.
