@@ -202,6 +202,13 @@ pub const Manager = struct {
         return record.phase;
     }
 
+    /// Return the immutable reservation snapshot for the runtime adapter.
+    /// The identifiers are Zweig Ledger handles, never seL4 CPtrs.
+    pub fn reservations(self: *const Manager, id: ProcessId) ?object_authority.ReservationSet {
+        const record = self.findConst(id) orelse return null;
+        return record.reservations;
+    }
+
     pub fn activeCount(self: *const Manager) usize {
         var count: usize = 0;
         for (self.records) |record| {
