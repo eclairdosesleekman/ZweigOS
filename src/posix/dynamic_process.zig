@@ -213,25 +213,16 @@ pub const Manager = struct {
         const child = processes.spawn(parent, domain_id) catch return error.ProcessTableFull;
         plan.owner = child.id;
 
-        const reservation_ticket = self.lifecycle.prepare(
+        self.lifecycle.prepare(
             processes,
             authority,
             child,
             plan,
         ) catch {
             _ = processes.fail(child.id, failed_spawn_exit_code) catch {};
-            free_record.* = .{
-                .active = true,
-                .request_id = request.request_id,
-                .request_digest = digest,
-                .process = child,
-                .parent = parent,
-                .state = .failed,
-            };
+            _ = processes.wait(parent, child.pid) catch {};
             return error.ResourceReservationFailed;
         };
-
-        _ = reservation_ticket;
         const record = free_record;
         record.* = .{
             .active = true,
@@ -242,7 +233,7 @@ pub const Manager = struct {
             .state = .preparing,
         };
 
-        const reservations = self.lifecycle.findReservations(child.id) orelse {
+        const reservations = self.lifecycle.reservations(child.id) orelse {
             return self.rollbackPrepared(
                 processes,
                 authority,
@@ -457,11 +448,6 @@ pub const Manager = struct {
         return null;
     }
 
-    fn findReservations(self: *Manager, id: process_registry.Id) ?object_authority.ReservationSet {
-        _ = self;
-        _ = id;
-        return null;
-    }
 };
 
 fn requestDigest(parent: process_registry.Id, request: SpawnRequest, image: []const u8) u64 {
@@ -474,11 +460,13 @@ fn requestDigest(parent: process_registry.Id, request: SpawnRequest, image: []co
     hashU64(&hash, request.stack_size);
     hashU64(&hash, request.max_frame_pages);
     for (request.arguments.argv) |value| {
+        hashU64(&hash, value.len);
         hashBytes(&hash, value);
         hashU64(&hash, 0xff);
     }
     hashU64(&hash, 0xfe);
     for (request.arguments.envp) |value| {
+        hashU64(&hash, value.len);
         hashBytes(&hash, value);
         hashU64(&hash, 0xfd);
     }
@@ -495,7 +483,7 @@ fn hashBytes(hash: *u64, bytes: []const u8) void {
 fn hashU64(hash: *u64, value: u64) void {
     var word = value;
     for (0..8) |_| {
-        hash.* ^= @truncate(word);
+        hash.* ^= @as(u64, @as(u8, @truncate(word)));
         hash.* *%= 1_099_511_628_211;
         word >>= 8;
     }
