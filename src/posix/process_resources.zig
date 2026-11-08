@@ -73,8 +73,9 @@ pub fn build(
         return error.InvalidImage;
     }
 
+    const address_mappings = toAddressSpaceMappings(loaded);
     const layout = address_space.validateInitialMappings(
-        &toAddressSpaceMappings(loaded),
+        address_mappings[0..loaded.mapping_count],
         loaded.stack_pointer,
         loaded.stack_top,
         loaded.stack_top - loaded.stack_bottom,
@@ -284,7 +285,7 @@ test "ELF mappings become a bounded resource batch with frame permissions" {
     };
     const plan = try build(testOwner(), loaded, profile, 8);
 
-    try std.testing.expectEqual(@as(usize, 8), plan.request_count);
+    try std.testing.expectEqual(@as(usize, 9), plan.request_count);
     try std.testing.expectEqual(@as(u32, 5), plan.total_frame_pages);
     try std.testing.expectEqual(object_authority.Kind.vspace, plan.requests[0].spec.kind);
     try std.testing.expectEqual(object_authority.Kind.cnode, plan.requests[1].spec.kind);
@@ -298,7 +299,13 @@ test "ELF mappings become a bounded resource batch with frame permissions" {
     try std.testing.expectEqual(object_authority.Kind.frame_region, plan.requests[7].spec.kind);
     try std.testing.expect(plan.requests[7].rights.execute);
     try std.testing.expect(!plan.requests[7].rights.write);
-    try std.testing.expectEqual(layout.ipc_buffer.base, plan.ipc_buffer_address);
+    try std.testing.expectEqual(object_authority.Kind.frame_region, plan.requests[8].spec.kind);
+    try std.testing.expect(plan.requests[8].rights.write);
+    try std.testing.expect(!plan.requests[8].rights.execute);
+    try std.testing.expectEqual(
+        address_space.default_stack_top - address_space.default_stack_size - 3 * page_size,
+        plan.ipc_buffer_address,
+    );
 
     var authority = object_authority.Table{};
     const reservations = try plan.reserve(&authority);
