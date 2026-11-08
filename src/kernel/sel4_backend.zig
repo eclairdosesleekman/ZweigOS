@@ -176,7 +176,6 @@ pub fn mintCapability(
     );
 }
 
-
 test "capability backend rejects rights escalation before invoking seL4" {
     const std = @import("std");
     try std.testing.expect(rightsAreSubset(0x0f, 0x05));
