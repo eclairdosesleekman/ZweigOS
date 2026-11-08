@@ -9,6 +9,7 @@ test {
     _ = @import("process_manager.zig");
     _ = @import("process_resources.zig");
     _ = @import("process_lifecycle.zig");
+    _ = @import("dynamic_process.zig");
     _ = @import("x86_64_context.zig");
     _ = @import("address_space.zig");
     _ = @import("process_slot_image.zig");
