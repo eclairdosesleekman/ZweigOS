@@ -58,6 +58,7 @@ pub const Error = error{
     InvalidRoot,
     RootTableFull,
     DuplicateRoot,
+    OverlappingRoot,
     InvalidOwner,
     InvalidCount,
     InvalidObjectSize,
@@ -92,7 +93,15 @@ pub const Pool = struct {
         if (end[1] != 0) return error.AddressOverflow;
 
         for (self.roots) |root| {
-            if (root.active and root.cap_cptr == cap_cptr) return error.DuplicateRoot;
+            if (!root.active) continue;
+            if (root.cap_cptr == cap_cptr) return error.DuplicateRoot;
+
+            const existing_size: u64 = @as(u64, 1) << @as(u6, @intCast(root.size_bits));
+            const existing_end = @addWithOverflow(root.physical_base, existing_size);
+            if (existing_end[1] != 0) return error.AddressOverflow;
+            if (physical_base < existing_end[0] and root.physical_base < end[0]) {
+                return error.OverlappingRoot;
+            }
         }
         for (&self.roots, 0..) |*root, index| {
             if (root.active) continue;
@@ -263,6 +272,18 @@ test "Untyped pool enforces capacity, alignment, and explicit revoke before reus
     try std.testing.expect(pool.isAvailable(root));
     try std.testing.expectEqual(@as(usize, 1), pool.freeRootCount());
     try std.testing.expectError(error.StaleLease, pool.rootCap(lease));
+}
+
+test "Untyped pool rejects overlapping physical extents but accepts adjacent roots" {
+    const std = @import("std");
+    var pool = Pool{};
+    _ = try pool.registerRoot(0x33, 0x80_0000, 16, .normal);
+    try std.testing.expectError(
+        error.OverlappingRoot,
+        pool.registerRoot(0x34, 0x80_8000, 15, .normal),
+    );
+    _ = try pool.registerRoot(0x35, 0x81_0000, 16, .normal);
+    try std.testing.expectEqual(@as(usize, 2), pool.freeRootCount());
 }
 
 test "device Untyped memory refuses kernel objects but may back frames" {
