@@ -703,8 +703,8 @@ fn testStaticImage(code: []const u8, data: []const u8) [184]u8 {
     writeTest64(&image, 160, 5000);
     writeTest64(&image, 168, 1);
 
-    @memcpy(image[176..180], &code);
-    @memcpy(image[180..184], &data);
+    @memcpy(image[176..180], code);
+    @memcpy(image[180..184], data);
     return image;
 }
 
