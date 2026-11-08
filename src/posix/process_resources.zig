@@ -105,13 +105,16 @@ pub fn build(
         .spec = .{ .kind = .scheduling_context },
         .rights = .{ .manage = true },
     });
+    // The syscall endpoint is invoked with MCS Call/Reply semantics.
     try append(&plan, .{
         .spec = .{ .kind = .endpoint },
-        .rights = .{ .invoke = true },
+        .rights = .{ .invoke = true, .grant = true },
     });
+    // TCB fault delivery requires a writable fault endpoint with Grant or
+    // GrantReply authority in the configuring service's CSpace.
     try append(&plan, .{
         .spec = .{ .kind = .endpoint },
-        .rights = .{ .invoke = true },
+        .rights = .{ .invoke = true, .grant = true },
     });
     try append(&plan, .{
         .spec = .{
