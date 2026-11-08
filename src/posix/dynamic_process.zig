@@ -192,7 +192,7 @@ pub const Manager = struct {
         }
 
         const free_record = self.freeRecord() orelse return error.RuntimeTableFull;
-        if (self.next_domain_id > std.math.maxInt(u16)) return error.ProcessIdExhausted;
+        if (self.next_domain_id > @as(u32, std.math.maxInt(u16))) return error.ProcessIdExhausted;
 
         const loaded = image_loader.load(image, staging, .{
             .stack_size = request.stack_size,
@@ -454,11 +454,11 @@ fn requestDigest(parent: process_registry.Id, request: SpawnRequest, image: []co
     var hash: u64 = 14_695_981_039_346_656_037;
     hashBytes(&hash, image);
     hashU64(&hash, parent.encode());
-    hashU64(&hash, request.profile.priority);
+    hashU64(&hash, @as(u64, request.profile.priority));
     hashU64(&hash, request.profile.budget_us);
     hashU64(&hash, request.profile.period_us);
     hashU64(&hash, request.stack_size);
-    hashU64(&hash, request.max_frame_pages);
+    hashU64(&hash, @as(u64, request.max_frame_pages));
     for (request.arguments.argv) |value| {
         hashU64(&hash, value.len);
         hashBytes(&hash, value);
@@ -566,7 +566,7 @@ const Mock = struct {
         bytes: []const u8,
     ) anyerror!void {
         const self: *Mock = @ptrCast(@alignCast(context.?));
-        if (bytes.len != mapping.byte_length or self.map_count == self.maps.len) {
+        if (@as(u64, @intCast(bytes.len)) != mapping.byte_length or self.map_count == self.maps.len) {
             return error.InvalidBacking;
         }
         self.map_calls += 1;
@@ -670,7 +670,7 @@ fn writeTest64(bytes: []u8, offset: usize, value: u64) void {
     }
 }
 
-fn testStaticImage(code: [4]u8, data: [4]u8) [184]u8 {
+fn testStaticImage(code: []const u8, data: []const u8) [184]u8 {
     var image: [184]u8 = @splat(0);
     image[0] = 0x7f;
     image[1] = 'E';
@@ -713,12 +713,6 @@ fn testProfile() scheduling.Profile {
     return .{ .priority = 90, .budget_us = 500, .period_us = 5000 };
 }
 
-fn testProcesses() !struct { process_manager.Table, process_manager.ProcessInfo } {
-    var processes: process_manager.Table = .{};
-    const parent = try processes.initialize(1);
-    return .{ processes, parent };
-}
-
 test "two dynamic ELF processes have independent VSpaces and reap all kernel resources" {
     const testing = std.testing;
     var processes: process_manager.Table = .{};
@@ -728,8 +722,8 @@ test "two dynamic ELF processes have independent VSpaces and reap all kernel res
     var mock = Mock{};
     const ops = mock.runtimeOps();
 
-    const hello = testStaticImage("HELO".*, "DATA".*);
-    const counter = testStaticImage("CNTR".*, "VALU".*);
+    const hello = testStaticImage("HELO", "DATA");
+    const counter = testStaticImage("CNTR", "VALU");
     var hello_staging: [64 * image_loader.page_size]u8 align(image_loader.page_size) = undefined;
     var counter_staging: [64 * image_loader.page_size]u8 align(image_loader.page_size) = undefined;
 
@@ -816,7 +810,7 @@ test "mapping failure rolls back the prepared process and leaves a waitable stat
     var manager: Manager = .{};
     var mock = Mock{ .fail_map_call = 2 };
     const ops = mock.runtimeOps();
-    const image = testStaticImage("FAIL".*, "ROLL".*);
+    const image = testStaticImage("FAIL", "ROLL");
     var staging: [64 * image_loader.page_size]u8 align(image_loader.page_size) = undefined;
     const request = SpawnRequest{
         .request_id = 202,
@@ -850,8 +844,8 @@ test "request idempotency rejects reuse with a different image" {
     var manager: Manager = .{};
     var mock = Mock{};
     const ops = mock.runtimeOps();
-    const first = testStaticImage("ONE!".*, "DATA".*);
-    const second = testStaticImage("TWO!".*, "DATA".*);
+    const first = testStaticImage("ONE!", "DATA");
+    const second = testStaticImage("TWO!", "DATA");
     var staging_a: [64 * image_loader.page_size]u8 align(image_loader.page_size) = undefined;
     var staging_b: [64 * image_loader.page_size]u8 align(image_loader.page_size) = undefined;
     const request = SpawnRequest{
