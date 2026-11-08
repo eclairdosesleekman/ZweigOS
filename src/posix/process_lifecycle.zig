@@ -101,7 +101,7 @@ pub const Manager = struct {
 
         // reserveBatch validates all requests and checks both tables' capacity
         // before writing any slot; after success, storing this record cannot fail.
-        const reservations = try authority.reserveBatch(
+        const reservation_set = try authority.reserveBatch(
             child.id,
             plan.requests[0..plan.request_count],
         );
@@ -111,7 +111,7 @@ pub const Manager = struct {
             .process_id = child.id,
             .pid = child.pid,
             .phase = .prepared,
-            .reservations = reservations,
+            .reservations = reservation_set,
             .request_count = plan.request_count,
         };
         for (plan.requests[0..plan.request_count], 0..) |request, index| {
