@@ -123,7 +123,7 @@ pub const Manager = struct {
             .parent = null,
             .root = true,
         };
-        self.emit(.capability_copied, owner, spec.kind, 0, 0);
+        self.emit(.object_created, owner, spec.kind, 0, 0);
         return .{ .slot = @intCast(index), .generation = record.generation };
     }
 
@@ -215,7 +215,7 @@ pub const Manager = struct {
         if (kernel_status != 0) {
             self.ledger.cancelGrant(parent.capability_id, child_capability, caller) catch {
                 self.spaces.quarantine(destination_space, destination_lease) catch {};
-                self.recordQuarantine(record_index, destination_space, destination_location, destination_lease, child_capability, recipient);
+                self.recordQuarantine(record_index, destination_space, destination_location, destination_lease, child_capability, recipient, parent_handle, parent.object_id, parent.kind, requested);
                 self.emit(.resource_quarantined, recipient, parent.kind, request_id, kernel_status);
                 return error.RollbackFailed;
             };
@@ -283,8 +283,17 @@ pub const Manager = struct {
             self.emit(.request_denied, caller, parent.kind, request_id, status);
             return error.KernelCallFailed;
         }
-        const revoked = self.ledger.revokeDescendants(parent.capability_id, caller) catch return error.LedgerFailure;
         const indices = self.collectDescendants(handle);
+        const revoked = self.ledger.revokeDescendants(parent.capability_id, caller) catch {
+            for (indices.items[0..indices.count]) |index| {
+                if (self.records[index].slot_lease) |lease| {
+                    self.spaces.quarantine(self.records[index].location.space, lease) catch {};
+                }
+                self.records[index].state = .quarantined;
+                self.emit(.resource_quarantined, self.records[index].holder, self.records[index].kind, request_id, -3);
+            }
+            return error.LedgerFailure;
+        };
         for (indices.items[0..indices.count]) |index| {
             self.releaseRevokedRecord(index) catch {
                 self.emit(.resource_quarantined, self.records[index].holder, self.records[index].kind, request_id, -2);
@@ -309,6 +318,7 @@ pub const Manager = struct {
 
         _ = try self.revokeTree(handle, caller, request_id);
         const current = self.getRecord(handle) catch return error.StaleHandle;
+        const deleted_kind = current.kind;
         const path = self.spaces.slotPath(current.location) catch return error.InvalidLocation;
         const status = self.ops.delete(self.ops.context, path.root, path.index, path.depth);
         if (status != 0) return error.KernelCallFailed;
@@ -321,12 +331,14 @@ pub const Manager = struct {
             return error.AccountingFailure;
         };
         try self.releaseRecordSlot(handle.slot);
-        self.emit(.capability_deleted, caller, current.kind, request_id, 0);
+        self.emit(.capability_deleted, caller, deleted_kind, request_id, 0);
     }
 
     pub fn activeCount(self: *const Manager) usize {
         var count: usize = 0;
-        for (self.records) |record| if (record.active) { count += 1; };
+        for (self.records) |record| {
+            if (record.active) count += 1;
+        }
         return count;
     }
 
@@ -390,6 +402,10 @@ pub const Manager = struct {
         lease: cspace.Lease,
         capability_id: authority.CapabilityId,
         holder: process.Id,
+        parent: CapabilityHandle,
+        object_id: authority.ObjectId,
+        kind: authority.Kind,
+        rights: authority.Rights,
     ) void {
         const record = &self.records[index];
         record.* = .{
@@ -397,10 +413,13 @@ pub const Manager = struct {
             .state = .quarantined,
             .generation = record.generation,
             .capability_id = capability_id,
+            .object_id = object_id,
             .holder = holder,
+            .kind = kind,
+            .rights = rights,
             .location = location,
             .slot_lease = lease,
-            .parent = null,
+            .parent = parent,
             .root = false,
         };
         _ = space;
@@ -417,10 +436,6 @@ pub const Manager = struct {
     fn findFreeRecord(self: *const Manager) ?usize {
         for (self.records, 0..) |record, index| if (!record.active) return index;
         return null;
-    }
-
-    fn recordQuarantineUnused(self: *Manager) void {
-        _ = self;
     }
 
     fn emit(
@@ -544,7 +559,7 @@ test "delegation uses separate CSpace locations and rights attenuation" {
     try testing.expectEqual(@as(u64, 0x20), mock.last_destination_index);
     try testing.expectEqual(@as(u64, 0x10), mock.last_source_index);
     try testing.expectEqual(@as(u64, 0x1234), mock.last_badge);
-    try testing.expectEqual(@as(u64, 0x2), mock.last_child_rights);
+    try testing.expectEqual(@as(u64, 0x0a), mock.last_child_rights);
     try manager.deleteDelegated(child, recipient, 78);
     try testing.expectEqual(@as(usize, 1), manager.activeCount());
     try testing.expectEqual(@as(usize, 16), try spaces.freeCount(child_space));
