@@ -31,6 +31,9 @@ pub const Error = error{
 };
 
 pub const Plan = struct {
+    pub const syscall_endpoint_request_index: usize = 4;
+    pub const fault_endpoint_request_index: usize = 5;
+    pub const ipc_buffer_request_index: usize = 6;
     owner: process.Id,
     entry: u64,
     stack_pointer: u64,
@@ -38,9 +41,6 @@ pub const Plan = struct {
     requests: [max_requests]object_authority.Request = undefined,
     request_count: usize = 0,
     total_frame_pages: u32 = 0,
-    pub const syscall_endpoint_request_index: usize = 4;
-    pub const fault_endpoint_request_index: usize = 5;
-    pub const ipc_buffer_request_index: usize = 6;
     ipc_buffer_address: u64 = 0,
 
     /// Reserve every resource description and root capability as one atomic
