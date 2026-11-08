@@ -493,7 +493,6 @@ fn sameProcess(left: process_registry.Id, right: process_registry.Id) bool {
     return left.slot == right.slot and left.generation == right.generation;
 }
 
-
 const Mock = struct {
     next_object: u32 = 1,
     map_calls: usize = 0,
