@@ -8,9 +8,10 @@ const process = @import("../core/process.zig");
 const object_authority = @import("../core/object_authority.zig");
 const scheduling = @import("../core/scheduling.zig");
 const image_loader = @import("image_loader.zig");
+const address_space = @import("address_space.zig");
 
 pub const page_size: u64 = image_loader.page_size;
-pub const max_requests: usize = image_loader.max_mappings + 4;
+pub const max_requests: usize = image_loader.max_mappings + 7;
 pub const default_max_frame_pages: u32 = 256;
 
 const user_min_address: u64 = 0x1_0000;
@@ -37,6 +38,10 @@ pub const Plan = struct {
     requests: [max_requests]object_authority.Request = undefined,
     request_count: usize = 0,
     total_frame_pages: u32 = 0,
+    pub const syscall_endpoint_request_index: usize = 4;
+    pub const fault_endpoint_request_index: usize = 5;
+    pub const ipc_buffer_request_index: usize = 6;
+    ipc_buffer_address: u64 = 0,
 
     /// Reserve every resource description and root capability as one atomic
     /// batch. On failure, the authority table is unchanged.
@@ -49,8 +54,9 @@ pub const Plan = struct {
 };
 
 /// Build the resource requirements for one staged user image.
-/// The request set contains one VSpace, CNode, TCB, Scheduling Context, and
-/// one frame-region reservation for each ELF/stack mapping.
+/// The request set contains VSpace, CNode, TCB, Scheduling Context, a
+/// process syscall Endpoint, a Fault Endpoint, an IPC-buffer Frame, and one
+/// Frame-region reservation for each ELF/stack mapping.
 pub fn build(
     owner: process.Id,
     loaded: image_loader.LoadedImage,
@@ -67,11 +73,19 @@ pub fn build(
         return error.InvalidImage;
     }
 
+    const layout = address_space.validateInitialMappings(
+        &toAddressSpaceMappings(loaded),
+        loaded.stack_pointer,
+        loaded.stack_top,
+        loaded.stack_top - loaded.stack_bottom,
+    ) catch return error.InvalidMapping;
+
     var plan = Plan{
         .owner = owner,
         .entry = loaded.entry,
         .stack_pointer = loaded.stack_pointer,
         .scheduling_profile = profile,
+        .ipc_buffer_address = layout.ipc_buffer.base,
     };
 
     try append(&plan, .{
@@ -90,8 +104,31 @@ pub fn build(
         .spec = .{ .kind = .scheduling_context },
         .rights = .{ .manage = true },
     });
+    try append(&plan, .{
+        .spec = .{ .kind = .endpoint },
+        .rights = .{ .invoke = true },
+    });
+    try append(&plan, .{
+        .spec = .{ .kind = .endpoint },
+        .rights = .{ .invoke = true },
+    });
+    try append(&plan, .{
+        .spec = .{
+            .kind = .frame_region,
+            .units = 1,
+            .mapping = .{
+                .virtual_address = layout.ipc_buffer.base,
+                .byte_length = page_size,
+                .backing_offset = 0,
+                .readable = true,
+                .writable = true,
+                .executable = false,
+            },
+        },
+        .rights = .{ .read = true, .write = true, .map = true },
+    });
 
-    var total_pages: u64 = 0;
+    var total_pages: u64 = 1;
     var entry_is_executable = false;
     var stack_is_writable = false;
 
@@ -172,6 +209,26 @@ pub fn build(
     return plan;
 }
 
+fn toAddressSpaceMappings(loaded: image_loader.LoadedImage) [image_loader.max_mappings]address_space.Mapping {
+    var mappings: [image_loader.max_mappings]address_space.Mapping = @splat(.{
+        .virtual_address = 0,
+        .byte_length = 0,
+        .readable = false,
+        .writable = false,
+        .executable = false,
+    });
+    for (loaded.mappings[0..loaded.mapping_count], 0..) |mapping, index| {
+        mappings[index] = .{
+            .virtual_address = mapping.virtual_address,
+            .byte_length = mapping.byte_length,
+            .readable = mapping.readable,
+            .writable = mapping.writable,
+            .executable = mapping.executable,
+        };
+    }
+    return mappings;
+}
+
 fn append(plan: *Plan, request: object_authority.Request) Error!void {
     if (plan.request_count == max_requests) return error.TooManyResources;
     plan.requests[plan.request_count] = request;
@@ -189,6 +246,9 @@ fn testImage() image_loader.LoadedImage {
         .stack_bottom = 0x70_0000,
         .stack_top = 0x70_2000,
         .stack_guard_bottom = 0x6f_f000,
+        .program_header_address = 0x70_1c00,
+        .program_header_entry_size = 56,
+        .program_header_count = 2,
         .mappings = @splat(.{}),
         .mapping_count = 2,
         .argument_count = 1,
@@ -224,17 +284,21 @@ test "ELF mappings become a bounded resource batch with frame permissions" {
     };
     const plan = try build(testOwner(), loaded, profile, 8);
 
-    try std.testing.expectEqual(@as(usize, 6), plan.request_count);
-    try std.testing.expectEqual(@as(u32, 4), plan.total_frame_pages);
+    try std.testing.expectEqual(@as(usize, 8), plan.request_count);
+    try std.testing.expectEqual(@as(u32, 5), plan.total_frame_pages);
     try std.testing.expectEqual(object_authority.Kind.vspace, plan.requests[0].spec.kind);
     try std.testing.expectEqual(object_authority.Kind.cnode, plan.requests[1].spec.kind);
     try std.testing.expectEqual(object_authority.Kind.tcb, plan.requests[2].spec.kind);
     try std.testing.expectEqual(object_authority.Kind.scheduling_context, plan.requests[3].spec.kind);
-    try std.testing.expectEqual(object_authority.Kind.frame_region, plan.requests[4].spec.kind);
-    try std.testing.expect(plan.requests[4].rights.execute);
-    try std.testing.expect(!plan.requests[4].rights.write);
-    try std.testing.expect(plan.requests[5].rights.write);
-    try std.testing.expect(!plan.requests[5].rights.execute);
+    try std.testing.expectEqual(object_authority.Kind.endpoint, plan.requests[4].spec.kind);
+    try std.testing.expectEqual(object_authority.Kind.endpoint, plan.requests[5].spec.kind);
+    try std.testing.expectEqual(object_authority.Kind.frame_region, plan.requests[6].spec.kind);
+    try std.testing.expect(plan.requests[6].rights.write);
+    try std.testing.expect(!plan.requests[6].rights.execute);
+    try std.testing.expectEqual(object_authority.Kind.frame_region, plan.requests[7].spec.kind);
+    try std.testing.expect(plan.requests[7].rights.execute);
+    try std.testing.expect(!plan.requests[7].rights.write);
+    try std.testing.expectEqual(layout.ipc_buffer.base, plan.ipc_buffer_address);
 
     var authority = object_authority.Table{};
     const reservations = try plan.reserve(&authority);
