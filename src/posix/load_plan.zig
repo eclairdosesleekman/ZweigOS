@@ -32,6 +32,9 @@ pub const Segment = struct {
 pub const Plan = struct {
     file_type: u16,
     entry: u64,
+    program_header_offset: u64,
+    program_header_entry_size: u16,
+    program_header_count: u16,
     segments: [max_load_segments]Segment,
     segment_count: usize,
     stack_bottom: u64,
@@ -56,6 +59,9 @@ pub fn create(image: []const u8) Error!Plan {
     var plan = Plan{
         .file_type = header.file_type,
         .entry = header.entry,
+        .program_header_offset = header.program_header_offset,
+        .program_header_entry_size = header.program_header_entry_size,
+        .program_header_count = header.program_header_count,
         .segments = undefined,
         .segment_count = 0,
         .stack_bottom = default_stack_top - default_stack_size,
