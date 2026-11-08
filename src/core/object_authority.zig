@@ -721,3 +721,48 @@ test "batch reservation is atomic and rejects malformed W plus X mappings" {
         .{ .invoke = true },
     ));
 }
+
+
+test "authority ledger cancels failed delegation without disturbing its object" {
+    const std = @import("std");
+    const owner = process.Id{ .slot = 0, .generation = 1 };
+    const recipient = process.Id{ .slot = 1, .generation = 1 };
+    var table = Table{};
+    const root = try table.reserve(owner, .{ .kind = .endpoint }, .{
+        .invoke = true,
+        .grant = true,
+    });
+    const child = try table.grant(root.capability, owner, recipient, .{ .invoke = true });
+
+    try table.cancelGrant(root.capability, child, owner);
+    try std.testing.expectEqual(@as(usize, 1), table.activeCapabilityCount());
+    try std.testing.expectEqual(@as(usize, 1), table.activeObjectCount());
+    try std.testing.expectError(
+        error.StaleCapability,
+        table.lookup(child, recipient, .{}),
+    );
+}
+
+test "authority ledger requires descendants revoked before deleting delegated cap" {
+    const std = @import("std");
+    const owner = process.Id{ .slot = 0, .generation = 1 };
+    const child_owner = process.Id{ .slot = 1, .generation = 1 };
+    const grandchild_owner = process.Id{ .slot = 2, .generation = 1 };
+    var table = Table{};
+    const root = try table.reserve(owner, .{ .kind = .endpoint }, .{
+        .invoke = true,
+        .grant = true,
+    });
+    const child = try table.grant(root.capability, owner, child_owner, .{
+        .invoke = true,
+        .grant = true,
+    });
+    const grandchild = try table.grant(child, child_owner, grandchild_owner, .{ .invoke = true });
+
+    try std.testing.expectError(error.LiveDelegates, table.deleteDelegated(child, child_owner));
+    try std.testing.expectEqual(@as(usize, 3), table.activeCapabilityCount());
+    _ = try table.revokeDescendants(child, child_owner);
+    try table.deleteDelegated(child, child_owner);
+    try std.testing.expectEqual(@as(usize, 1), table.activeCapabilityCount());
+    try std.testing.expectError(error.StaleCapability, table.lookup(grandchild, grandchild_owner, .{}));
+}
