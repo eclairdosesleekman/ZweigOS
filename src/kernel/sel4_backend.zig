@@ -178,7 +178,7 @@ pub fn mintCapability(
 
 /// Revoke every capability derived from the target slot in the supplied CSpace.
 pub fn revokeCapability(target: SlotPath) c_int {
-    if (target.root == 0 or target.index == 0 or target.depth == 0 or target.depth > cnode_word_depth) {
+    if (target.root == 0 or target.index == 0 or target.depth == 0 or target.depth > manager.cnode_word_depth) {
         return -22;
     }
     return zweig_sel4_cnode_revoke(target.root, target.index, target.depth);
@@ -186,7 +186,7 @@ pub fn revokeCapability(target: SlotPath) c_int {
 
 /// Delete one capability slot. The caller must have revoked descendants first.
 pub fn deleteCapability(target: SlotPath) c_int {
-    if (target.root == 0 or target.index == 0 or target.depth == 0 or target.depth > cnode_word_depth) {
+    if (target.root == 0 or target.index == 0 or target.depth == 0 or target.depth > manager.cnode_word_depth) {
         return -22;
     }
     return zweig_sel4_cnode_delete(target.root, target.index, target.depth);
