@@ -96,6 +96,16 @@ Phase 9 executes caller-supplied flat machine code in a pre-mapped slot. It does
 
 This is an implementation slice, **not Phase 10 completion**. The current Microkit SDF does not hand an Untyped capability to the existing memory-manager PD, so live object creation is not yet wired into the running system. See [docs/phase-10-implementation-notes.md](docs/phase-10-implementation-notes.md) for supported object kinds, remaining integration work, and validation status.
 
+### Phase 11 (in progress): dynamic process and static ELF foundation
+
+- Add an initial x86-64 address-space policy for the RW/NX stack, unmapped guard page, and private IPC-buffer page.
+- Complete the static ELF64 initial stack with `AT_PHDR`, `AT_PHENT`, and `AT_PHNUM`; reject `PT_INTERP` and retain the `ET_EXEC`-only policy.
+- Extend each process resource plan with its VSpace, CNode, TCB, MCS Scheduling Context, process syscall/fault Endpoints, IPC-buffer Frame, and ELF/stack Frame regions.
+- Add a request-ID-idempotent dynamic process transaction coordinator with a typed runtime adapter, Badge-before-Resume ordering, suspend/exit, and unmap/destroy-before-reap cleanup.
+- Test mock processes with independent VSpace/Frame handles and rollback after an injected mapping failure.
+
+This is a Phase 11 foundation, **not Phase 11 completion**. The runtime adapter is currently exercised by host mocks; trusted Untyped/ASID/SchedControl handoff and real seL4 VSpace/page-table/Frame-map/MCS TCB operations are still required before dynamic ELF processes can run in QEMU. See [docs/phase-11-implementation-notes.md](docs/phase-11-implementation-notes.md).
+
 ## Toolchain
 
 - [seL4 Microkit 2.4.0](https://docs.sel4.systems/releases/microkit)
