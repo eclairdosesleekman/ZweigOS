@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //! Addressable CSpace catalogue. Locations are Zweig identities, not CPtrs.
 
-const cspace = @import("cspace_allocator.zig");
+const cspace = @import("cspace_allocator.zig");\nconst std = @import("std");
 pub const max_spaces: usize = 8;
 pub const max_cnode_depth: usize = 4;
 pub const word_depth: u64 = 64;
@@ -52,8 +52,9 @@ pub const Catalog = struct {
 
     pub fn location(self: *const Catalog, id: SpaceId, lease: cspace.Lease, index: u32) Error!CSpaceLocation {
         const space = self.getSpaceConst(id) orelse return error.StaleSpace;
-        _ = space.allocator.cptr(lease, index) catch return error.SlotOutOfRange;
-        return .{ .space = id, .slot = lease.start + @as(u16, @intCast(index)) };
+        const local_cptr = space.allocator.cptr(lease, index) catch return error.SlotOutOfRange;
+        if (local_cptr > std.math.maxInt(u32)) return error.SlotOutOfRange;
+        return .{ .space = id, .slot = @intCast(local_cptr) };
     }
 
     pub fn slotPath(self: *const Catalog, location_value: CSpaceLocation) Error!SlotPath {
